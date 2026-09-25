@@ -19,31 +19,18 @@ endif()
 
 option(BASE_BUILD_TESTS "Build tests" ON)
 
-set(BASE_PUBLIC_HEADERS
-  ${CMAKE_CURRENT_SOURCE_DIR}/include/bld.hpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/base.hpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/wasm_host.hpp
-)
-
 add_library(base INTERFACE)
 add_library(base::base ALIAS base)
 
 target_compile_features(base INTERFACE cxx_std_23)
-target_sources(
+target_include_directories(
   base
   INTERFACE
-    FILE_SET HEADERS
-    BASE_DIRS
-      ${CMAKE_CURRENT_SOURCE_DIR}/include
-      ${CMAKE_CURRENT_SOURCE_DIR}/src
-    FILES ${BASE_PUBLIC_HEADERS}
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
-install(
-  TARGETS base
-  FILE_SET HEADERS
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+install(DIRECTORY src/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.hpp")
 
 if(BASE_BUILD_TESTS)
   include(FetchContent)
@@ -63,20 +50,18 @@ if(BASE_BUILD_TESTS)
   add_executable(base_tests
     tests/mock_runtime.cpp
     tests/unit/test_blocks.cpp
+    tests/unit/test_blocks_f64.cpp
   )
   target_link_libraries(base_tests PRIVATE base doctest::doctest)
-  target_compile_definitions(base_tests PRIVATE DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN)
+  set_source_files_properties(tests/unit/test_blocks.cpp PROPERTIES COMPILE_DEFINITIONS DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN)
 
-  # wasm_host.hpp is an alternate host and is not linked into the tests.
-  set(base_wasm_host_tu "${CMAKE_CURRENT_BINARY_DIR}/wasm_host_tu.cpp")
-  file(WRITE "${base_wasm_host_tu}" [[
-#include <wasm_host.hpp>
+  # Platform hosts are headers. Compile each one once; do not link them into the tests.
+  set_source_files_properties(src/browser/host.hpp src/mcu/hal.hpp PROPERTIES LANGUAGE CXX HEADER_FILE_ONLY FALSE COMPILE_OPTIONS "-Wno-pragma-once-outside-header")
+  add_library(base_browser_host OBJECT src/browser/host.hpp)
+  target_link_libraries(base_browser_host PRIVATE base)
 
-extern "C" void mount() {}
-extern "C" void host_sendPinF32(u32, u8, f32) {}
-]])
-  add_library(base_wasm_host OBJECT "${base_wasm_host_tu}")
-  target_link_libraries(base_wasm_host PRIVATE base)
+  add_library(base_mcu_hal OBJECT src/mcu/hal.hpp)
+  target_link_libraries(base_mcu_hal PRIVATE base)
 
   include(CTest)
   add_test(NAME base_tests COMMAND base_tests)

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <bld.hpp>
+#include <core/hal.hpp>
 #include <map>
 #include <utility>
 #include <vector>
@@ -18,6 +18,8 @@ class MockRuntime {
   static void emitGpio(u32 port, u8 pin, bool value);
   static auto hasF32(u32 blockId, u8 channel) -> bool;
   static auto lastF32(u32 blockId, u8 channel) -> f32;
+  static auto hasF64(u32 blockId, u8 channel) -> bool;
+  static auto lastF64(u32 blockId, u8 channel) -> f64;
   static auto activeIntervalCount() -> u32;
   static auto activeGpioCount() -> u32;
   static auto intervalPeriodAt(u32 index) -> u32;
