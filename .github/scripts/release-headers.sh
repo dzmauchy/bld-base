@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Publish every public header on the v<project version> GitHub release.
-# base-<version>.tar.gz contains those .hpp files only, with no directories.
+# base-<version>.tar.gz keeps include/, core/, blocks/, and math/ paths.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -17,25 +17,24 @@ fi
 tag="v${version}"
 stage="$(mktemp -d)"
 
-mapfile -d '' headers < <(find include src -type f -name '*.hpp' -print0 | sort -z)
+mapfile -d '' headers < <(find include core blocks math -type f -name '*.hpp' -print0 | sort -z)
 if [[ ${#headers[@]} -eq 0 ]]; then
-  echo "No public headers found under include/ or src/" >&2
+  echo "No public headers found under include/, core/, blocks/, or math/" >&2
   exit 1
 fi
 
 for header in "${headers[@]}"; do
-  name="$(basename "${header}")"
-  if [[ -e "${stage}/${name}" ]]; then
-    echo "Duplicate header file name: ${name}" >&2
-    exit 1
-  fi
-  cp "${header}" "${stage}/${name}"
+  rel="${header#./}"
+  dest="${stage}/${rel}"
+  mkdir -p "$(dirname "${dest}")"
+  cp "${header}" "${dest}"
 done
 
-mapfile -t names < <(find "${stage}" -maxdepth 1 -type f -name '*.hpp' -printf '%f\n' | sort)
+mapfile -t names < <(cd "${stage}" && find . -type f -name '*.hpp' -printf '%P\n' | sort)
 
 archive="base-${version}.tar.gz"
-# Members are the header filenames only. No directory entries.
+# Members keep the include tree (include/, core/, blocks/, math/) so quoted
+# paths such as "core/hal.hpp" still resolve after unpacking.
 (
   cd "${stage}"
   tar -czf "${root}/${archive}" -- "${names[@]}"
@@ -48,8 +47,8 @@ if [[ ${#members[@]} -eq 0 ]]; then
   exit 1
 fi
 for member in "${members[@]}"; do
-  if [[ ! "${member}" =~ ^[^/]+\.hpp$ ]]; then
-    echo "Release archive must contain only .hpp files, with no directories: ${member}" >&2
+  if [[ ! "${member}" =~ ^([A-Za-z0-9_]+/)*[A-Za-z0-9_]+\.hpp$ ]]; then
+    echo "Release archive member is not a header path: ${member}" >&2
     rm -f "${archive}"
     exit 1
   fi

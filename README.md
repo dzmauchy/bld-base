@@ -23,10 +23,16 @@ ctest --test-dir build --output-on-failure
 
 ## Headers
 
-`cmake --install build --prefix dist` installs every public header into `dist/include`:
+`cmake --install build --prefix dist` installs the public headers under `dist/include`:
 
-- `bld.hpp`
-- `base.hpp`
-- `wasm_host.hpp`
+- `bld.hpp`, `base.hpp`, and `bld/callback.hpp` — core umbrella and member adapters
+- `core/` — HAL and runtime interfaces (`Block`, `Callback`, `Array`, `Maybe`, `move()`)
+- `blocks/` — platform-agnostic push blocks, including the f32 and f64 endpoints
+- `math/trig.hpp` — `wrapTwoPi` and trigonometry helpers
+
+Platform code is not part of the header set:
+
+- `arch/wasm/host.cpp` — WASM simulation host
+- `arch/mcu/hal.cpp` — bare-metal timer and GPIO host
 
 Pushes to `main` publish those headers as a GitHub Release tagged with the project version (`v0.1.0`). Each commit on `main` replaces that release so the tag always matches the current sources for that version. A new version in `CMakeLists.txt` publishes a new tag and leaves the previous release in place.

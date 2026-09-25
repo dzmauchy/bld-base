@@ -1,14 +1,11 @@
-#pragma once
-
 #include <bld.hpp>
+
 
 void register_gpio_block(u32 blockId, u16 port, const Array<u8>& pins);
 
 extern "C" void mount();
 
 
-#ifndef BLD_WASM_HOST_IMPL
-#define BLD_WASM_HOST_IMPL
 
 namespace {
 
@@ -421,4 +418,3 @@ u32 activeGpioListenerCount() { return WasmHost::instance().activeGpioCount(); }
 void clearPins() { WasmHost::instance().clearPins(); }
 }
 
-#endif

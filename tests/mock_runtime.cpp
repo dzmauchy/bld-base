@@ -57,6 +57,16 @@ auto MockRuntime::lastF32(u32 blockId, u8 channel) -> f32 {
   return std::numeric_limits<f32>::quiet_NaN();
 }
 
+auto MockRuntime::hasF64(u32 blockId, u8 channel) -> bool { return instance().valuesF64_.contains({blockId, channel}); }
+
+auto MockRuntime::lastF64(u32 blockId, u8 channel) -> f64 {
+  auto& values = instance().valuesF64_;
+  if (auto it = values.find({blockId, channel}); it != values.end()) {
+    return it->second;
+  }
+  return std::numeric_limits<f64>::quiet_NaN();
+}
+
 auto MockRuntime::activeIntervalCount() -> u32 { return static_cast<u32>(std::ranges::count_if(instance().intervals_, isActive)); }
 
 auto MockRuntime::activeGpioCount() -> u32 { return static_cast<u32>(std::ranges::count_if(instance().gpio_, isActive)); }
