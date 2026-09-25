@@ -7,7 +7,7 @@
 #include "core/types.hpp"
 
 /**
- * <type id="array" name="Array" description="An array of values">
+ * <type name="Array" description="An array of values">
  *   <arg name="T" description="Array component type"/>
  * </type>
  */
