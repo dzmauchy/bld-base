@@ -28,9 +28,7 @@ namespace transformers {
 
 /**
  * <block id="cos_f32" icon="cos.svg" title="cos" description="Computes the cosine of the input value">
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="cos" vector="false">
  *     <type name="pss"/>
  *   </output>
@@ -49,9 +47,7 @@ class CosF32 : public UnaryTransformer<F32> {
 
 /**
  * <block id="sin_f32" icon="sin.svg" title="sin" description="Computes the sine of the input value">
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="sin" vector="false">
  *     <type name="pss"/>
  *   </output>
@@ -73,9 +69,7 @@ class SinF32 : public UnaryTransformer<F32> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="p" vector="true">
  *     <type name="pss"/>
  *   </output>
@@ -97,9 +91,7 @@ class ProductF32 : public Aggregate<F32> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="s" vector="true">
  *     <type name="pss"/>
  *   </output>
@@ -172,7 +164,6 @@ namespace sources {
  *     </control>
  *   </conf>
  *   <input name="pin" vector="true">
- *     <type name="pss"/>
  *     <concept>
  *       <length>
  *         <bind type="conf" id="pins">
@@ -200,9 +191,7 @@ class GpioInF32 : public GpioIn<F32> {
  *       <implementation>the control should be able to define a constant value</implementation>
  *     </control>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class ConstF32 : public Constant<F32> {
@@ -226,9 +215,7 @@ class ConstF32 : public Constant<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class CosGenF32 : public WaveGen<F32> {
@@ -256,9 +243,7 @@ class CosGenF32 : public WaveGen<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class SinGenF32 : public WaveGen<F32> {
@@ -280,9 +265,7 @@ class SinGenF32 : public WaveGen<F32> {
  *   <conf id="amplitude" type="f32">
  *     <control type="text_input" default="1" format="f32"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class RandGenF32 : public RandGen<F32> {
@@ -306,9 +289,7 @@ class RandGenF32 : public RandGen<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class PulseGenF32 : public PulseGen<F32> {

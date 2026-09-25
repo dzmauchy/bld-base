@@ -28,9 +28,7 @@ namespace transformers {
 
 /**
  * <block id="cos_f64" icon="cos.svg" title="cos" description="Computes the cosine of the input value">
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="cos" vector="false">
  *     <type name="pss"/>
  *   </output>
@@ -49,9 +47,7 @@ class CosF64 : public UnaryTransformer<F64> {
 
 /**
  * <block id="sin_f64" icon="sin.svg" title="sin" description="Computes the sine of the input value">
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="sin" vector="false">
  *     <type name="pss"/>
  *   </output>
@@ -73,9 +69,7 @@ class SinF64 : public UnaryTransformer<F64> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="p" vector="true">
  *     <type name="pss"/>
  *   </output>
@@ -97,9 +91,7 @@ class ProductF64 : public Aggregate<F64> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  *   <output name="s" vector="true">
  *     <type name="pss"/>
  *   </output>
@@ -172,7 +164,6 @@ namespace sources {
  *     </control>
  *   </conf>
  *   <input name="pin" vector="true">
- *     <type name="pss"/>
  *     <concept>
  *       <length>
  *         <bind type="conf" id="pins">
@@ -200,9 +191,7 @@ class GpioInF64 : public GpioIn<F64> {
  *       <implementation>the control should be able to define a constant value</implementation>
  *     </control>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class ConstF64 : public Constant<F64> {
@@ -226,9 +215,7 @@ class ConstF64 : public Constant<F64> {
  *   <conf id="phase" type="f64">
  *     <control type="text_input" default="0" format="f64" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class CosGenF64 : public WaveGen<F64> {
@@ -256,9 +243,7 @@ class CosGenF64 : public WaveGen<F64> {
  *   <conf id="phase" type="f64">
  *     <control type="text_input" default="0" format="f64" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class SinGenF64 : public WaveGen<F64> {
@@ -280,9 +265,7 @@ class SinGenF64 : public WaveGen<F64> {
  *   <conf id="amplitude" type="f64">
  *     <control type="text_input" default="1" format="f64"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class RandGenF64 : public RandGen<F64> {
@@ -306,9 +289,7 @@ class RandGenF64 : public RandGen<F64> {
  *   <conf id="phase" type="f64">
  *     <control type="text_input" default="0" format="f64" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true">
- *     <type name="pss"/>
- *   </input>
+ *   <input name="v" vector="true"/>
  * </block>
  */
 class PulseGenF64 : public PulseGen<F64> {
