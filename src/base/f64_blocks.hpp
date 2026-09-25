@@ -36,9 +36,6 @@ class CosF64 : public UnaryTransformer<F64> {
  public:
   explicit CosF64(u32 blockId) : UnaryTransformer<F64>(blockId) {}
 
-  using v = Pss<F64>*;
-  using cos = Pss<F64>*;
-
  protected:
   [[nodiscard]] F64 transform(F64 value) const override { return math::cos(value); }
 };
@@ -52,9 +49,6 @@ class CosF64 : public UnaryTransformer<F64> {
 class SinF64 : public UnaryTransformer<F64> {
  public:
   explicit SinF64(u32 blockId) : UnaryTransformer<F64>(blockId) {}
-
-  using v = Pss<F64>*;
-  using sin = Pss<F64>*;
 
  protected:
   [[nodiscard]] F64 transform(F64 value) const override { return math::sin(value); }
@@ -73,9 +67,6 @@ class ProductF64 : public Aggregate<F64> {
  public:
   explicit ProductF64(u32 blockId, u32 precision = 10) : Aggregate<F64>(blockId, precision) {}
 
-  using v = Pss<F64>*;
-  using p = Pss<F64>*;
-
  protected:
   [[nodiscard]] F64 combine(F64 acc, F64 value) const override { return acc * value; }
 };
@@ -92,9 +83,6 @@ class ProductF64 : public Aggregate<F64> {
 class SumF64 : public Aggregate<F64> {
  public:
   explicit SumF64(u32 blockId, u32 precision = 10) : Aggregate<F64>(blockId, precision) {}
-
-  using v = Pss<F64>*;
-  using s = Pss<F64>*;
 
  protected:
   [[nodiscard]] F64 combine(F64 acc, F64 value) const override { return acc + value; }
@@ -121,8 +109,6 @@ namespace sinks {
 class ScopeF64 : public Scope<F64> {
  public:
   explicit ScopeF64(u32 blockId, u32 period = 60, u32 precision = 10) : Scope<F64>(blockId, period, precision) {}
-
-  using sink = Pss<F64>*;
 };
 
 }  // namespace sinks
@@ -169,8 +155,6 @@ namespace sources {
 class GpioInF64 : public GpioIn<F64> {
  public:
   explicit GpioInF64(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<F64>(blockId, port, move(pins)) {}
-
-  using pin = Pss<F64>*;
 };
 
 /**
@@ -187,8 +171,6 @@ class GpioInF64 : public GpioIn<F64> {
 class ConstF64 : public Constant<F64> {
  public:
   explicit ConstF64(u32 blockId, F64 v = 1) : Constant<F64>(blockId, v) {}
-
-  using v = Pss<F64>*;
 };
 
 /**
@@ -212,8 +194,6 @@ class CosGenF64 : public WaveGen<F64> {
  public:
   explicit CosGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
       : WaveGen<F64>(blockId, precision, frequency, amplitude, phase) {}
-
-  using v = Pss<F64>*;
 
  protected:
   [[nodiscard]] F64 wave(F64 angle) const override { return math::cos(angle); }
@@ -241,8 +221,6 @@ class SinGenF64 : public WaveGen<F64> {
   explicit SinGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
       : WaveGen<F64>(blockId, precision, frequency, amplitude, phase) {}
 
-  using v = Pss<F64>*;
-
  protected:
   [[nodiscard]] F64 wave(F64 angle) const override { return math::sin(angle); }
 };
@@ -261,8 +239,6 @@ class SinGenF64 : public WaveGen<F64> {
 class RandGenF64 : public RandGen<F64> {
  public:
   explicit RandGenF64(u32 blockId, u32 precision = 10, F64 amplitude = 1) : RandGen<F64>(blockId, precision, amplitude) {}
-
-  using v = Pss<F64>*;
 };
 
 /**
@@ -286,8 +262,6 @@ class PulseGenF64 : public PulseGen<F64> {
  public:
   explicit PulseGenF64(u32 blockId, F64 dutyCycle = 0.5, F64 amplitude = 1, F64 frequency = 1, F64 phase = 0)
       : PulseGen<F64>(blockId, dutyCycle, amplitude, frequency, phase) {}
-
-  using v = Pss<F64>*;
 };
 
 }  // namespace sources
