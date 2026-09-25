@@ -146,6 +146,9 @@ class Array {
 };
 
 template <typename T>
+using Vectorized = Array<T*>;
+
+template <typename T>
 [[nodiscard]] Array<T> arrayFrom(const T* items, u32 count) {
   auto result = Array<T>{};
   for (u32 i = 0; i < count; ++i) {

@@ -11,7 +11,7 @@ class Aggregate : public NativeBlock {
  public:
   ~Aggregate() override = default;
 
-  [[nodiscard]] auto apply(Vectorized<Pss<T>> downstream, u8 n) {
+  [[nodiscard]] auto apply(Vectorized<Consumer<T>> downstream, u8 n) {
     downstream_ = move(downstream);
     return bindInputs(n);
   }
@@ -29,7 +29,7 @@ class Aggregate : public NativeBlock {
 
   void handleStart() { armInterval(precision_, tickCb_, closeCb_); }
 
-  [[nodiscard]] auto bindInputs(u8 n) -> Vectorized<Pss<T>> {
+  [[nodiscard]] auto bindInputs(u8 n) -> Vectorized<Consumer<T>> {
     values_.assign(n, nan_of<T>());
     inputs_.clear();
     inputs_.reserve(n);
@@ -59,7 +59,7 @@ class Aggregate : public NativeBlock {
   }
 
   u32 precision_;
-  Vectorized<Pss<T>> downstream_{};
+  Vectorized<Consumer<T>> downstream_{};
   Array<T> values_{};
   Array<IndexedMemberConsumer<Aggregate<T>, T, &Aggregate<T>::handleChannel>> inputs_{};
   MemberCallback<Aggregate<T>, &Aggregate<T>::handleTick> tickCb_{this};
