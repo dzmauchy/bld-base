@@ -1,4 +1,5 @@
-#include <bld.hpp>
+#include <core/array.hpp>
+#include <core/hal.hpp>
 
 
 void register_gpio_block(u32 blockId, u16 port, const Array<u8>& pins);

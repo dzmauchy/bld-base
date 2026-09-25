@@ -1,6 +1,6 @@
 #pragma once
 
-#include "blocks/pss.hpp"
+#include <base/pss.hpp>
 #include <core/block.hpp>
 #include <core/callback.hpp>
 #include <core/hal.hpp>

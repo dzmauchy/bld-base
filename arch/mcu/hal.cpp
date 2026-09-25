@@ -1,4 +1,4 @@
-#include <bld.hpp>
+#include <core/hal.hpp>
 
 // Bare-metal host for the C HAL. Firmware calls bld_mcu_start() once the
 // blocks are constructed, bld_mcu_timer_isr() from the hardware timer, and

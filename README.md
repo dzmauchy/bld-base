@@ -29,14 +29,17 @@ ctest --test-dir build --output-on-failure
 #include <core/block.hpp>
 #include <core/callback.hpp>
 #include <core/hal.hpp>
+#include <core/math/trig.hpp>
 ```
 
-- `core/` — shared HAL and runtime headers (`Block`, `Callback`, `Array`, `Maybe`, `move()`, member adapters)
-- `bld.hpp` — umbrella for every header in `core/`
-- `base.hpp` and `blocks/` — this library's push blocks, including the f32 and f64 endpoints
-- `math/trig.hpp` — `wrapTwoPi` and trigonometry helpers
+Sources live under `src/`. Install and the release archive use the contents of that directory as the include prefix:
 
-The versioned release archive uses the same layout, with a `core/` directory in the tarball.
+- `core/` — shared HAL and runtime headers (`Block`, `Callback`, `Array`, `Maybe`, `move()`, member adapters), included as `#include <core/....hpp>`
+- `core/math/` — `wrapTwoPi` and trigonometry helpers, included as `#include <core/math/trig.hpp>`
+- `base/` — this library's push blocks, including the f32 and f64 endpoints
+- `base.hpp` — includes those endpoints (`#include <base.hpp>`)
+
+The versioned release archive contains `base.hpp`, `base/`, `core/`, and `core/math/`.
 
 Platform code is not part of the header set:
 

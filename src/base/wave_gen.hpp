@@ -1,7 +1,7 @@
 #pragma once
 
-#include "blocks/periodic_source.hpp"
-#include "math/trig.hpp"
+#include <base/periodic_source.hpp>
+#include <core/math/trig.hpp>
 
 namespace push {
 
