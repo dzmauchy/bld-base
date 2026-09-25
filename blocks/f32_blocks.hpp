@@ -11,23 +11,23 @@
 #include "math/trig.hpp"
 
 /**
- * <namespace name="Push Dataflows" icon="push-ns.svg" description="Push Dataflows"/>
+ * <namespace icon="push-ns.svg" description="Push Dataflows"/>
  */
 namespace push {
 /**
- * <namespace name="Single precision" icon="push.f32-ns.svg" description="Single precision push dataflows"/>
+ * <namespace icon="push.f32-ns.svg" description="Single precision push dataflows"/>
  */
 namespace f32 {
 
 using F32 = ::f32;
 
 /**
- * <namespace name="Transformers" icon="push.transformers-ns.svg" description="Transformers"/>
+ * <namespace icon="push.transformers-ns.svg" description="Transformers"/>
  */
 namespace transformers {
 
 /**
- * <block id="cos_f32" icon="cos.svg" title="cos" description="Computes the cosine of the input value">
+ * <block icon="cos.svg" title="cos" description="Computes the cosine of the input value">
  *   <input icon="cos.svg" description="Value whose cosine is computed"/>
  *   <output icon="cos.svg" description="Cosine of the input value"/>
  * </block>
@@ -44,7 +44,7 @@ class CosF32 : public UnaryTransformer<F32> {
 };
 
 /**
- * <block id="sin_f32" icon="sin.svg" title="sin" description="Computes the sine of the input value">
+ * <block icon="sin.svg" title="sin" description="Computes the sine of the input value">
  *   <input icon="sin.svg" description="Value whose sine is computed"/>
  *   <output icon="sin.svg" description="Sine of the input value"/>
  * </block>
@@ -61,7 +61,7 @@ class SinF32 : public UnaryTransformer<F32> {
 };
 
 /**
- * <block id="product_f32" icon="product.svg" title="Product" description="Computes the product of the input values">
+ * <block icon="product.svg" title="Product" description="Computes the product of the input values">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -81,7 +81,7 @@ class ProductF32 : public Aggregate<F32> {
 };
 
 /**
- * <block id="sum_f32" icon="sum.svg" title="Sum" description="Computes the sum of the input values">
+ * <block icon="sum.svg" title="Sum" description="Computes the sum of the input values">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -103,12 +103,12 @@ class SumF32 : public Aggregate<F32> {
 }  // namespace transformers
 
 /**
- * <namespace name="Sinks" icon="push.sinks-ns.svg" description="Sinks"/>
+ * <namespace icon="push.sinks-ns.svg" description="Sinks"/>
  */
 namespace sinks {
 
 /**
- * <block id="scope_f32" icon="scope.svg" title="Scope" description="Displays the input values in a scope">
+ * <block icon="scope.svg" title="Scope" description="Displays the input values in a scope">
  *   <conf id="period" type="u32">
  *     <control type="slider" default="60" min="10" max="600" unit="s"/>
  *   </conf>
@@ -128,12 +128,12 @@ class ScopeF32 : public Scope<F32> {
 }  // namespace sinks
 
 /**
- * <namespace name="Sources" icon="push.sources-ns.svg" description="Sources"/>
+ * <namespace icon="push.sources-ns.svg" description="Sources"/>
  */
 namespace sources {
 
 /**
- * <block id="gpio_in_f32" icon="push.gpio_in.svg" title="GPIO Input" description="Reads the input value from a GPIO pin">
+ * <block icon="push.gpio_in.svg" title="GPIO Input" description="Reads the input value from a GPIO pin">
  *   <conf id="port" type="u16">
  *     <control type="text_input" format="u16hex" min="0" max="65535"/>
  *   </conf>
@@ -174,7 +174,7 @@ class GpioInF32 : public GpioIn<F32> {
 };
 
 /**
- * <block id="const_f32" icon="push.const.svg" title="Constant" description="Constant value">
+ * <block icon="push.const.svg" title="Constant" description="Constant value">
  *   <implementation>the implementation should propagate the constant value across all streams</implementation>
  *   <conf id="v" type="f32">
  *     <control type="text_input" format="f32" default="1">
@@ -192,7 +192,7 @@ class ConstF32 : public Constant<F32> {
 };
 
 /**
- * <block id="cos_gen_f32" icon="push.cos-gen.svg" title="cos" description="Cosine generator">
+ * <block icon="push.cos-gen.svg" title="cos" description="Cosine generator">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -220,7 +220,7 @@ class CosGenF32 : public WaveGen<F32> {
 };
 
 /**
- * <block id="sin_gen_f32" icon="push.sin-gen.svg" title="sin" description="Sine generator">
+ * <block icon="push.sin-gen.svg" title="sin" description="Sine generator">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -248,7 +248,7 @@ class SinGenF32 : public WaveGen<F32> {
 };
 
 /**
- * <block id="rand_gen_f32" icon="push.rand-gen.svg" title="Random" description="Random generator">
+ * <block icon="push.rand-gen.svg" title="Random" description="Random generator">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -266,7 +266,7 @@ class RandGenF32 : public RandGen<F32> {
 };
 
 /**
- * <block id="pulse_gen_f32" icon="push.pulse-gen.svg" title="Pulse" description="Pulse signal generator">
+ * <block icon="push.pulse-gen.svg" title="Pulse" description="Pulse signal generator">
  *   <conf id="duty_cycle" type="f32">
  *     <control type="slider" default="0.5" min="0.0" max="1.0" step="0.01"/>
  *   </conf>
