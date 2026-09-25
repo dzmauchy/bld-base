@@ -4,8 +4,7 @@
 #include "core/callback.hpp"
 
 /**
- * <type id="pss" name="Push stream">
- *   <description>A stream of data that can be pushed to</description>
+ * <type id="pss" name="Push stream" description="A stream of data that can be pushed to">
  *   <arg name="T" description="Push stream type"/>
  * </type>
  */
