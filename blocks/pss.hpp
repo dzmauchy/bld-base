@@ -6,7 +6,9 @@
 /**
  * <type id="pss" name="Push stream">
  *   <description>A stream of data that can be pushed to</description>
- *   <param name="T">Push stream type</param>
+ *   <arg name="T">
+ *     <description>Push stream type</description>
+ *   </arg>
  * </type>
  */
 template <typename T>

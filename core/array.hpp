@@ -9,7 +9,9 @@
 /**
  * <type id="array" name="Array">
  *   <description>An array of values</description>
- *   <param name="T">Array component type</param>
+ *   <arg name="T">
+ *     <description>Array component type</description>
+ *   </arg>
  * </type>
  */
 template <typename T>

@@ -36,14 +36,10 @@ namespace transformers {
  * <block id="cos_f32" icon="cos.svg" title="cos">
  *   <description>Computes the cosine of the input value</description>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  *   <output name="cos" vector="false">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </output>
  * </block>
  */
@@ -62,14 +58,10 @@ class CosF32 : public UnaryTransformer<F32> {
  * <block id="sin_f32" icon="sin.svg" title="sin">
  *   <description>Computes the sine of the input value</description>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  *   <output name="sin" vector="false">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </output>
  * </block>
  */
@@ -91,14 +83,10 @@ class SinF32 : public UnaryTransformer<F32> {
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  *   <output name="p" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </output>
  * </block>
  */
@@ -120,14 +108,10 @@ class ProductF32 : public Aggregate<F32> {
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  *   <output name="s" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </output>
  * </block>
  */
@@ -161,9 +145,7 @@ namespace sinks {
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
  *   <output name="sink" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </output>
  * </block>
  */
@@ -190,7 +172,6 @@ namespace sources {
  *     <control type="text_input" format="u16hex" min="0" max="65535"/>
  *   </conf>
  *   <conf id="pins" type="array">
- *     <arg name="T" type="u8"/>
  *     <control type="set_of_pins">
  *       <length>
  *         <bind type="input" id="pin">
@@ -199,9 +180,7 @@ namespace sources {
  *           </concept>
  *         </bind>
  *       </length>
- *       <arg name="T">
- *         <control type="spinner" default="0" min="0" max="255"/>
- *       </arg>
+ *       <control name="T" type="spinner" default="0" min="0" max="255"/>
  *       <implementation>the control should show a row of spinners, each spinner per pin</implementation>
  *       <implementation>the control should permit adding and removing pins</implementation>
  *       <implementation>the pin numbers should be editable</implementation>
@@ -209,9 +188,7 @@ namespace sources {
  *     </control>
  *   </conf>
  *   <input name="pin" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *     <concept>
  *       <length>
  *         <bind type="conf" id="pins">
@@ -241,9 +218,7 @@ class GpioInF32 : public GpioIn<F32> {
  *     </control>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  * </block>
  */
@@ -270,9 +245,7 @@ class ConstF32 : public Constant<F32> {
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  * </block>
  */
@@ -303,9 +276,7 @@ class CosGenF32 : public WaveGen<F32> {
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  * </block>
  */
@@ -330,9 +301,7 @@ class SinGenF32 : public WaveGen<F32> {
  *     <control type="text_input" default="1" format="f32"/>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  * </block>
  */
@@ -359,9 +328,7 @@ class RandGenF32 : public RandGen<F32> {
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
  *   <input name="v" vector="true">
- *     <type name="pss">
- *       <arg name="T" type="f32"/>
- *     </type>
+ *     <type name="pss"/>
  *   </input>
  * </block>
  */
