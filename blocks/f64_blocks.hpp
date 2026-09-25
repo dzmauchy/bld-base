@@ -34,9 +34,6 @@ namespace transformers {
 
 /**
  * <block id="cos_f64" icon="cos.svg" title="cos">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>transformers</ns>
  *   <description>Computes the cosine of the input value</description>
  *   <input name="v" vector="true">
  *     <type name="pss">
@@ -63,9 +60,6 @@ class CosF64 : public UnaryTransformer<F64> {
 
 /**
  * <block id="sin_f64" icon="sin.svg" title="sin">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>transformers</ns>
  *   <description>Computes the sine of the input value</description>
  *   <input name="v" vector="true">
  *     <type name="pss">
@@ -92,9 +86,6 @@ class SinF64 : public UnaryTransformer<F64> {
 
 /**
  * <block id="product_f64" icon="product.svg" title="Product">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>transformers</ns>
  *   <description>Computes the product of the input values</description>
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
@@ -124,9 +115,6 @@ class ProductF64 : public Aggregate<F64> {
 
 /**
  * <block id="sum_f64" icon="sum.svg" title="Sum">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>transformers</ns>
  *   <description>Computes the sum of the input values</description>
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
@@ -165,9 +153,6 @@ namespace sinks {
 
 /**
  * <block id="scope_f64" icon="scope.svg" title="Scope">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sinks</ns>
  *   <description>Displays the input values in a scope</description>
  *   <conf id="period" type="u32">
  *     <control type="slider" default="60" min="10" max="600" unit="s"/>
@@ -200,9 +185,6 @@ namespace sources {
 
 /**
  * <block id="gpio_in_f64" icon="push.gpio_in.svg" title="GPIO Input">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sources</ns>
  *   <description>Reads the input value from a GPIO pin</description>
  *   <conf id="port" type="u16">
  *     <control type="text_input" format="u16hex" min="0" max="65535"/>
@@ -251,9 +233,6 @@ class GpioInF64 : public GpioIn<F64> {
 
 /**
  * <block id="const_f64" icon="push.const.svg" title="Constant">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sources</ns>
  *   <description>Constant value</description>
  *   <implementation>the implementation should propagate the constant value across all streams</implementation>
  *   <conf id="v" type="f64">
@@ -277,9 +256,6 @@ class ConstF64 : public Constant<F64> {
 
 /**
  * <block id="cos_gen_f64" icon="push.cos-gen.svg" title="cos">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sources</ns>
  *   <description>Cosine generator</description>
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
@@ -313,9 +289,6 @@ class CosGenF64 : public WaveGen<F64> {
 
 /**
  * <block id="sin_gen_f64" icon="push.sin-gen.svg" title="sin">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sources</ns>
  *   <description>Sine generator</description>
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
@@ -349,9 +322,6 @@ class SinGenF64 : public WaveGen<F64> {
 
 /**
  * <block id="rand_gen_f64" icon="push.rand-gen.svg" title="Random">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sources</ns>
  *   <description>Random generator</description>
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
@@ -375,9 +345,6 @@ class RandGenF64 : public RandGen<F64> {
 
 /**
  * <block id="pulse_gen_f64" icon="push.pulse-gen.svg" title="Pulse">
- *   <ns>push</ns>
- *   <ns>f64</ns>
- *   <ns>sources</ns>
  *   <description>Pulse signal generator</description>
  *   <conf id="duty_cycle" type="f64">
  *     <control type="slider" default="0.5" min="0.0" max="1.0" step="0.01"/>
