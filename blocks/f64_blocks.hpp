@@ -11,30 +11,23 @@
 #include "math/trig.hpp"
 
 /**
- * <namespace name="Push Dataflows" icon="push-ns.svg">
- *   <description>Push Dataflows</description>
- * </namespace>
+ * <namespace name="Push Dataflows" icon="push-ns.svg" description="Push Dataflows"/>
  */
 namespace push {
 /**
- * <namespace name="Double precision" icon="push.f64-ns.svg">
- *   <description>Double precision push dataflows</description>
- * </namespace>
+ * <namespace name="Double precision" icon="push.f64-ns.svg" description="Double precision push dataflows"/>
  */
 namespace f64 {
 
 using F64 = ::f64;
 
 /**
- * <namespace name="Transformers" icon="push.transformers-ns.svg">
- *   <description>Transformers</description>
- * </namespace>
+ * <namespace name="Transformers" icon="push.transformers-ns.svg" description="Transformers"/>
  */
 namespace transformers {
 
 /**
- * <block id="cos_f64" icon="cos.svg" title="cos">
- *   <description>Computes the cosine of the input value</description>
+ * <block id="cos_f64" icon="cos.svg" title="cos" description="Computes the cosine of the input value">
  *   <input name="v" vector="true">
  *     <type name="pss"/>
  *   </input>
@@ -55,8 +48,7 @@ class CosF64 : public UnaryTransformer<F64> {
 };
 
 /**
- * <block id="sin_f64" icon="sin.svg" title="sin">
- *   <description>Computes the sine of the input value</description>
+ * <block id="sin_f64" icon="sin.svg" title="sin" description="Computes the sine of the input value">
  *   <input name="v" vector="true">
  *     <type name="pss"/>
  *   </input>
@@ -77,8 +69,7 @@ class SinF64 : public UnaryTransformer<F64> {
 };
 
 /**
- * <block id="product_f64" icon="product.svg" title="Product">
- *   <description>Computes the product of the input values</description>
+ * <block id="product_f64" icon="product.svg" title="Product" description="Computes the product of the input values">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -102,8 +93,7 @@ class ProductF64 : public Aggregate<F64> {
 };
 
 /**
- * <block id="sum_f64" icon="sum.svg" title="Sum">
- *   <description>Computes the sum of the input values</description>
+ * <block id="sum_f64" icon="sum.svg" title="Sum" description="Computes the sum of the input values">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -129,15 +119,12 @@ class SumF64 : public Aggregate<F64> {
 }  // namespace transformers
 
 /**
- * <namespace name="Sinks" icon="push.sinks-ns.svg">
- *   <description>Sinks</description>
- * </namespace>
+ * <namespace name="Sinks" icon="push.sinks-ns.svg" description="Sinks"/>
  */
 namespace sinks {
 
 /**
- * <block id="scope_f64" icon="scope.svg" title="Scope">
- *   <description>Displays the input values in a scope</description>
+ * <block id="scope_f64" icon="scope.svg" title="Scope" description="Displays the input values in a scope">
  *   <conf id="period" type="u32">
  *     <control type="slider" default="60" min="10" max="600" unit="s"/>
  *   </conf>
@@ -159,15 +146,12 @@ class ScopeF64 : public Scope<F64> {
 }  // namespace sinks
 
 /**
- * <namespace name="Sources" icon="push.sources-ns.svg">
- *   <description>Sources</description>
- * </namespace>
+ * <namespace name="Sources" icon="push.sources-ns.svg" description="Sources"/>
  */
 namespace sources {
 
 /**
- * <block id="gpio_in_f64" icon="push.gpio_in.svg" title="GPIO Input">
- *   <description>Reads the input value from a GPIO pin</description>
+ * <block id="gpio_in_f64" icon="push.gpio_in.svg" title="GPIO Input" description="Reads the input value from a GPIO pin">
  *   <conf id="port" type="u16">
  *     <control type="text_input" format="u16hex" min="0" max="65535"/>
  *   </conf>
@@ -209,8 +193,7 @@ class GpioInF64 : public GpioIn<F64> {
 };
 
 /**
- * <block id="const_f64" icon="push.const.svg" title="Constant">
- *   <description>Constant value</description>
+ * <block id="const_f64" icon="push.const.svg" title="Constant" description="Constant value">
  *   <implementation>the implementation should propagate the constant value across all streams</implementation>
  *   <conf id="v" type="f64">
  *     <control type="text_input" format="f64" default="1">
@@ -230,8 +213,7 @@ class ConstF64 : public Constant<F64> {
 };
 
 /**
- * <block id="cos_gen_f64" icon="push.cos-gen.svg" title="cos">
- *   <description>Cosine generator</description>
+ * <block id="cos_gen_f64" icon="push.cos-gen.svg" title="cos" description="Cosine generator">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -261,8 +243,7 @@ class CosGenF64 : public WaveGen<F64> {
 };
 
 /**
- * <block id="sin_gen_f64" icon="push.sin-gen.svg" title="sin">
- *   <description>Sine generator</description>
+ * <block id="sin_gen_f64" icon="push.sin-gen.svg" title="sin" description="Sine generator">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -292,8 +273,7 @@ class SinGenF64 : public WaveGen<F64> {
 };
 
 /**
- * <block id="rand_gen_f64" icon="push.rand-gen.svg" title="Random">
- *   <description>Random generator</description>
+ * <block id="rand_gen_f64" icon="push.rand-gen.svg" title="Random" description="Random generator">
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
@@ -313,8 +293,7 @@ class RandGenF64 : public RandGen<F64> {
 };
 
 /**
- * <block id="pulse_gen_f64" icon="push.pulse-gen.svg" title="Pulse">
- *   <description>Pulse signal generator</description>
+ * <block id="pulse_gen_f64" icon="push.pulse-gen.svg" title="Pulse" description="Pulse signal generator">
  *   <conf id="duty_cycle" type="f64">
  *     <control type="slider" default="0.5" min="0.0" max="1.0" step="0.01"/>
  *   </conf>
