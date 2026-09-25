@@ -29,7 +29,7 @@ namespace transformers {
 /**
  * <block icon="cos.svg" title="cos" description="Computes the cosine of the input value">
  *   <input icon="cos.svg" description="Value whose cosine is computed"/>
- *   <output id="cos" icon="cos.svg" description="Cosine of the input value"/>
+ *   <output icon="cos.svg" description="Cosine of the input value"/>
  * </block>
  */
 class CosF64 : public UnaryTransformer<F64> {
@@ -43,7 +43,7 @@ class CosF64 : public UnaryTransformer<F64> {
 /**
  * <block icon="sin.svg" title="sin" description="Computes the sine of the input value">
  *   <input icon="sin.svg" description="Value whose sine is computed"/>
- *   <output id="sin" icon="sin.svg" description="Sine of the input value"/>
+ *   <output icon="sin.svg" description="Sine of the input value"/>
  * </block>
  */
 class SinF64 : public UnaryTransformer<F64> {
@@ -60,7 +60,7 @@ class SinF64 : public UnaryTransformer<F64> {
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
  *   <input icon="product.svg" description="Values to multiply"/>
- *   <output id="p" icon="product.svg" description="Product of the input values"/>
+ *   <output icon="product.svg" description="Product of the input values"/>
  * </block>
  */
 class ProductF64 : public Aggregate<F64> {
@@ -77,7 +77,7 @@ class ProductF64 : public Aggregate<F64> {
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
  *   <input icon="sum.svg" description="Values to add"/>
- *   <output id="s" icon="sum.svg" description="Sum of the input values"/>
+ *   <output icon="sum.svg" description="Sum of the input values"/>
  * </block>
  */
 class SumF64 : public Aggregate<F64> {
@@ -103,7 +103,7 @@ namespace sinks {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <output id="sink" icon="scope.svg" description="Scope channel"/>
+ *   <output icon="scope.svg" description="Scope channel"/>
  * </block>
  */
 class ScopeF64 : public Scope<F64> {
