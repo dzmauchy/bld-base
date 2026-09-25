@@ -46,4 +46,4 @@ Platform hosts are headers too:
 - `src/browser/host.hpp` — browser simulation host (`#include <browser/host.hpp>`)
 - `src/mcu/hal.hpp` — bare-metal timer and GPIO host (`#include <mcu/hal.hpp>`)
 
-Pushes to `main` publish those headers as a GitHub Release tagged with the project version (`v0.1.0`). Each commit on `main` replaces that release so the tag always matches the current sources for that version. A new version in `CMakeLists.txt` publishes a new tag and leaves the previous release in place.
+The Release headers workflow publishes those headers as a GitHub Release tagged with the project version (`v0.1.0`). Run it manually from the Actions tab. Running it again for the same version replaces that release so the tag matches the selected commit. A new version in `CMakeLists.txt` publishes a new tag and leaves the previous release in place.
