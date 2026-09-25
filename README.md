@@ -39,11 +39,11 @@ Sources live under `src/`. Install and the release archive use the contents of t
 - `base/` — this library's push blocks, including the f32 and f64 endpoints
 - `base.hpp` — includes those endpoints (`#include <base.hpp>`)
 
-The versioned release archive contains `base.hpp`, `base/`, `core/`, `core/math/`, `wasm/`, and `mcu/`.
+The versioned release archive contains `base.hpp`, `base/`, `core/`, `core/math/`, `browser/`, and `mcu/`.
 
 Platform hosts are headers too:
 
-- `src/wasm/host.hpp` — WASM simulation host (`#include <wasm/host.hpp>`)
+- `src/browser/host.hpp` — browser simulation host (`#include <browser/host.hpp>`)
 - `src/mcu/hal.hpp` — bare-metal timer and GPIO host (`#include <mcu/hal.hpp>`)
 
 Pushes to `main` publish those headers as a GitHub Release tagged with the project version (`v0.1.0`). Each commit on `main` replaces that release so the tag always matches the current sources for that version. A new version in `CMakeLists.txt` publishes a new tag and leaves the previous release in place.
