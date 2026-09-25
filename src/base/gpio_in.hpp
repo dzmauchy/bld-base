@@ -10,7 +10,7 @@ class GpioIn : public NativeBlock {
  public:
   explicit GpioIn(u32 blockId, u16 port, Array<u8> pins) : NativeBlock(blockId), port_(port), pins_(move(pins)) {}
 
-  void connectPin(u8 pinIndex, Vectorized<Pss<T>> sinks) {
+  void connectPin(u8 pinIndex, Vectorized<Consumer<T>> sinks) {
     if (pinIndex >= kMaxPins) {
       return;
     }
@@ -72,7 +72,7 @@ class GpioIn : public NativeBlock {
 
   u16 port_;
   Array<u8> pins_;
-  Vectorized<Pss<T>> pinConsumers_[kMaxPins]{};
+  Vectorized<Consumer<T>> pinConsumers_[kMaxPins]{};
   PinSlot slots_[kMaxPins]{};
   u32 handles_[kMaxPins]{};
   u32 handleCount_{0};

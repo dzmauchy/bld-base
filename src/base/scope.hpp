@@ -20,7 +20,7 @@ class Scope : public NativeBlock {
  private:
   void handlePush(u8 channel, T value) { this->sendValue(channel, value); }
 
-  [[nodiscard]] auto makeChannels(u8 n) -> Vectorized<Pss<T>> {
+  [[nodiscard]] auto makeChannels(u8 n) -> Vectorized<Consumer<T>> {
     channels_.clear();
     channels_.reserve(n);
     for (u8 i = 0; i < n; ++i) {

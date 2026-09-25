@@ -10,7 +10,7 @@ class PeriodicSource : public NativeBlock {
  public:
   ~PeriodicSource() override = default;
 
-  void apply(Vectorized<Pss<T>> downstream) {
+  void apply(Vectorized<Consumer<T>> downstream) {
     downstream_ = move(downstream);
     onStart(startCb_);
   }
@@ -23,7 +23,7 @@ class PeriodicSource : public NativeBlock {
 
   [[nodiscard]] auto intervalMs() const { return intervalMs_; }
 
-  Vectorized<Pss<T>> downstream_{};
+  Vectorized<Consumer<T>> downstream_{};
   u32 intervalMs_;
 
  private:

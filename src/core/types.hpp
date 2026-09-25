@@ -45,3 +45,15 @@ using f32 = float;
  * <type name="64-bit Floating Point Number" description="A floating point value that can hold values from approximately -1.7976931348623157e+308 to 1.7976931348623157e+308"/>
  */
 using f64 = double;
+
+/**
+ * <type icon="consumer.svg" name="Consumer" description="A stream of data that can be pushed to">
+ *   <arg name="T" description="Consumed value type"/>
+ * </type>
+ */
+template <typename... Args>
+class Consumer {
+ public:
+  virtual ~Consumer() = default;
+  virtual void operator()(Args... args) = 0;
+};

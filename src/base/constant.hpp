@@ -10,7 +10,7 @@ class Constant : public NativeBlock {
  public:
   explicit Constant(u32 blockId, T value) : NativeBlock(blockId), value_(value) {}
 
-  void apply(Vectorized<Pss<T>> downstream) {
+  void apply(Vectorized<Consumer<T>> downstream) {
     downstream_ = move(downstream);
     onStart(startCb_);
   }
@@ -21,7 +21,7 @@ class Constant : public NativeBlock {
   void handleStart() { pushTo(downstream_, value_); }
 
   T value_;
-  Vectorized<Pss<T>> downstream_{};
+  Vectorized<Consumer<T>> downstream_{};
   MemberCallback<Constant<T>, &Constant<T>::handleStart> startCb_{this};
 };
 
