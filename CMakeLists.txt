@@ -55,11 +55,12 @@ if(BASE_BUILD_TESTS)
   target_link_libraries(base_tests PRIVATE base doctest::doctest)
   set_source_files_properties(tests/unit/test_blocks.cpp PROPERTIES COMPILE_DEFINITIONS DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN)
 
-  # Platform hosts are alternate C ABIs and are not linked into the tests.
-  add_library(base_wasm_host OBJECT arch/wasm/host.cpp)
+  # Platform hosts are headers. Compile each one once; do not link them into the tests.
+  set_source_files_properties(src/wasm/host.hpp src/mcu/hal.hpp PROPERTIES LANGUAGE CXX HEADER_FILE_ONLY FALSE COMPILE_OPTIONS "-Wno-pragma-once-outside-header")
+  add_library(base_wasm_host OBJECT src/wasm/host.hpp)
   target_link_libraries(base_wasm_host PRIVATE base)
 
-  add_library(base_mcu_hal OBJECT arch/mcu/hal.cpp)
+  add_library(base_mcu_hal OBJECT src/mcu/hal.hpp)
   target_link_libraries(base_mcu_hal PRIVATE base)
 
   include(CTest)
