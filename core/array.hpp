@@ -3,8 +3,8 @@
 #include <initializer_list>
 #include <new>
 
-#include "core/move.hpp"
-#include "core/types.hpp"
+#include <core/move.hpp>
+#include <core/types.hpp>
 
 /**
  * <type name="Array" description="An array of values">

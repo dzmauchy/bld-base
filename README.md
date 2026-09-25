@@ -23,12 +23,20 @@ ctest --test-dir build --output-on-failure
 
 ## Headers
 
-`cmake --install build --prefix dist` installs the public headers under `dist/include`:
+`cmake --install build --prefix dist` installs the public headers under `dist/include`. Other block libraries include the shared headers from that prefix:
 
-- `bld.hpp`, `base.hpp`, and `bld/callback.hpp` — core umbrella and member adapters
-- `core/` — HAL and runtime interfaces (`Block`, `Callback`, `Array`, `Maybe`, `move()`)
-- `blocks/` — platform-agnostic push blocks, including the f32 and f64 endpoints
+```cpp
+#include <core/block.hpp>
+#include <core/callback.hpp>
+#include <core/hal.hpp>
+```
+
+- `core/` — shared HAL and runtime headers (`Block`, `Callback`, `Array`, `Maybe`, `move()`, member adapters)
+- `bld.hpp` — umbrella for every header in `core/`
+- `base.hpp` and `blocks/` — this library's push blocks, including the f32 and f64 endpoints
 - `math/trig.hpp` — `wrapTwoPi` and trigonometry helpers
+
+The versioned release archive uses the same layout, with a `core/` directory in the tarball.
 
 Platform code is not part of the header set:
 

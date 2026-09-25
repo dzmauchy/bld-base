@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/callback.hpp"
-#include "core/types.hpp"
+#include <core/callback.hpp>
+#include <core/types.hpp>
 
 extern "C" {
 /* life-cycle callbacks */

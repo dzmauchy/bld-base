@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/array.hpp"
-#include "core/callback.hpp"
+#include <core/array.hpp>
+#include <core/callback.hpp>
 
 /**
  * <type name="Push stream" description="A stream of data that can be pushed to">

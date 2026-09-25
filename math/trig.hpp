@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/hal.hpp"
-#include "core/types.hpp"
+#include <core/hal.hpp>
+#include <core/types.hpp>
 
 namespace math {
 

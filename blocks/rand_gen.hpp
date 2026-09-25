@@ -1,7 +1,7 @@
 #pragma once
 
 #include "blocks/periodic_source.hpp"
-#include "core/hal.hpp"
+#include <core/hal.hpp>
 
 namespace push {
 

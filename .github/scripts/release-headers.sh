@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Publish every public header on the v<project version> GitHub release.
-# base-<version>.tar.gz keeps include/, core/, blocks/, and math/ paths.
+# The archive root is an include prefix. Shared headers are under core/ so other
+# block libraries can #include <core/....hpp>.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -25,6 +26,11 @@ fi
 
 for header in "${headers[@]}"; do
   rel="${header#./}"
+  # include/bld.hpp and include/base.hpp sit at the archive root. core/, blocks/,
+  # and math/ keep their directories.
+  if [[ "${rel}" == include/* ]]; then
+    rel="${rel#include/}"
+  fi
   dest="${stage}/${rel}"
   mkdir -p "$(dirname "${dest}")"
   cp "${header}" "${dest}"
@@ -33,8 +39,8 @@ done
 mapfile -t names < <(cd "${stage}" && find . -type f -name '*.hpp' -printf '%P\n' | sort)
 
 archive="base-${version}.tar.gz"
-# Members keep the include tree (include/, core/, blocks/, math/) so quoted
-# paths such as "core/hal.hpp" still resolve after unpacking.
+# core/ is a directory in the archive so #include <core/....hpp> resolves
+# when the unpacked tree is on the include path.
 (
   cd "${stage}"
   tar -czf "${root}/${archive}" -- "${names[@]}"
@@ -46,13 +52,22 @@ if [[ ${#members[@]} -eq 0 ]]; then
   rm -f "${archive}"
   exit 1
 fi
+has_core=0
 for member in "${members[@]}"; do
   if [[ ! "${member}" =~ ^([A-Za-z0-9_]+/)*[A-Za-z0-9_]+\.hpp$ ]]; then
     echo "Release archive member is not a header path: ${member}" >&2
     rm -f "${archive}"
     exit 1
   fi
+  if [[ "${member}" == core/*.hpp ]]; then
+    has_core=1
+  fi
 done
+if [[ "${has_core}" -ne 1 ]]; then
+  echo "Release archive must contain the core/ header folder" >&2
+  rm -f "${archive}"
+  exit 1
+fi
 
 notes_file="$(mktemp)"
 {
