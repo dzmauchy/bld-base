@@ -6,7 +6,12 @@
 #include "core/move.hpp"
 #include "core/types.hpp"
 
-/*{"kind":"type","id":"array","name":"Array","description":"An array of values","params":{"T":{"name":"Array component type"}}}*/
+/**
+ * <type id="array" name="Array">
+ *   <description>An array of values</description>
+ *   <param name="T">Array component type</param>
+ * </type>
+ */
 template <typename T>
 class Array {
  public:

@@ -1,6 +1,6 @@
 # BASE block library (C++)
 
-A header-only C++ library. Exposed types, namespaces, blocks, ports, and config carry a JSON comment that core reads from the clang AST. Production sources are headers; the CMake target builds those headers and the native tests.
+A header-only C++ library. Exposed types, namespaces, blocks, ports, and config carry an XML doc comment that core reads from the clang AST. Production sources are headers; the CMake target builds those headers and the native tests.
 
 The project version is `VERSION` in `CMakeLists.txt`.
 
