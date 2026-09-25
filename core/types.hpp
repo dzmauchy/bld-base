@@ -1,7 +1,5 @@
 #pragma once
 
-#define BLD_C 0
-
 /**
  * <type id="bool" name="Boolean" description="A boolean value that can be either true or false"/>
  */
