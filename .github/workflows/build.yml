@@ -16,7 +16,7 @@ permissions:
 jobs:
   build:
     name: Clang 23
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
