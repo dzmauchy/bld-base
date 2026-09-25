@@ -12,4 +12,4 @@ template <typename T>
 using Pss = Consumer<T>;
 
 template <typename T>
-using VectorizedInput = Array<T*>;
+using Vectorized = Array<T*>;

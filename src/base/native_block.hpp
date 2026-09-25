@@ -65,8 +65,8 @@ class NativeBlock : public Block {
   }
 
   template <typename T, typename Item>
-  [[nodiscard]] static auto pointersOf(Array<Item>& items) -> VectorizedInput<Pss<T>> {
-    auto result = VectorizedInput<Pss<T>>{};
+  [[nodiscard]] static auto pointersOf(Array<Item>& items) -> Vectorized<Pss<T>> {
+    auto result = Vectorized<Pss<T>>{};
     result.reserve(items.size());
     for (u32 i = 0; i < items.size(); ++i) {
       result.push_back(&items[i]);
