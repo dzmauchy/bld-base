@@ -28,16 +28,13 @@ namespace transformers {
 
 /**
  * <block icon="cos.svg" title="cos" description="Computes the cosine of the input value">
- *   <input icon="cos.svg" description="Value whose cosine is computed"/>
- *   <output icon="cos.svg" description="Cosine of the input value"/>
+ *   <input id="v" icon="cos.svg" description="Value whose cosine is computed"/>
+ *   <output id="cos" icon="cos.svg" description="Cosine of the input value"/>
  * </block>
  */
 class CosF32 : public UnaryTransformer<F32> {
  public:
   explicit CosF32(u32 blockId) : UnaryTransformer<F32>(blockId) {}
-
-  using v = Pss<F32>*;
-  using cos = Pss<F32>*;
 
  protected:
   [[nodiscard]] F32 transform(F32 value) const override { return math::cos(value); }
@@ -45,16 +42,13 @@ class CosF32 : public UnaryTransformer<F32> {
 
 /**
  * <block icon="sin.svg" title="sin" description="Computes the sine of the input value">
- *   <input icon="sin.svg" description="Value whose sine is computed"/>
- *   <output icon="sin.svg" description="Sine of the input value"/>
+ *   <input id="v" icon="sin.svg" description="Value whose sine is computed"/>
+ *   <output id="sin" icon="sin.svg" description="Sine of the input value"/>
  * </block>
  */
 class SinF32 : public UnaryTransformer<F32> {
  public:
   explicit SinF32(u32 blockId) : UnaryTransformer<F32>(blockId) {}
-
-  using v = Pss<F32>*;
-  using sin = Pss<F32>*;
 
  protected:
   [[nodiscard]] F32 transform(F32 value) const override { return math::sin(value); }
@@ -65,16 +59,13 @@ class SinF32 : public UnaryTransformer<F32> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input icon="product.svg" description="Values to multiply"/>
- *   <output icon="product.svg" description="Product of the input values"/>
+ *   <input id="v" icon="product.svg" description="Values to multiply"/>
+ *   <output id="p" icon="product.svg" description="Product of the input values"/>
  * </block>
  */
 class ProductF32 : public Aggregate<F32> {
  public:
   explicit ProductF32(u32 blockId, u32 precision = 10) : Aggregate<F32>(blockId, precision) {}
-
-  using v = Pss<F32>*;
-  using p = Pss<F32>*;
 
  protected:
   [[nodiscard]] F32 combine(F32 acc, F32 value) const override { return acc * value; }
@@ -85,16 +76,13 @@ class ProductF32 : public Aggregate<F32> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input icon="sum.svg" description="Values to add"/>
- *   <output icon="sum.svg" description="Sum of the input values"/>
+ *   <input id="v" icon="sum.svg" description="Values to add"/>
+ *   <output id="s" icon="sum.svg" description="Sum of the input values"/>
  * </block>
  */
 class SumF32 : public Aggregate<F32> {
  public:
   explicit SumF32(u32 blockId, u32 precision = 10) : Aggregate<F32>(blockId, precision) {}
-
-  using v = Pss<F32>*;
-  using s = Pss<F32>*;
 
  protected:
   [[nodiscard]] F32 combine(F32 acc, F32 value) const override { return acc + value; }
@@ -115,14 +103,12 @@ namespace sinks {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <output icon="scope.svg" description="Scope channel"/>
+ *   <output id="sink" icon="scope.svg" description="Scope channel"/>
  * </block>
  */
 class ScopeF32 : public Scope<F32> {
  public:
   explicit ScopeF32(u32 blockId, u32 period = 60, u32 precision = 10) : Scope<F32>(blockId, period, precision) {}
-
-  using sink = Pss<F32>*;
 };
 
 }  // namespace sinks
@@ -153,7 +139,7 @@ namespace sources {
  *       <implementation>the pin numbers should be unique and sorted ascending</implementation>
  *     </control>
  *   </conf>
- *   <input icon="push.gpio_in.svg" description="Reads one configured GPIO pin">
+ *   <input id="pin" icon="push.gpio_in.svg" description="Reads one configured GPIO pin">
  *     <concept>
  *       <length>
  *         <bind type="conf" id="pins">
@@ -169,8 +155,6 @@ namespace sources {
 class GpioInF32 : public GpioIn<F32> {
  public:
   explicit GpioInF32(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<F32>(blockId, port, move(pins)) {}
-
-  using pin = Pss<F32>*;
 };
 
 /**
@@ -181,14 +165,12 @@ class GpioInF32 : public GpioIn<F32> {
  *       <implementation>the control should be able to define a constant value</implementation>
  *     </control>
  *   </conf>
- *   <input icon="push.const.svg" description="Streams that receive the constant value"/>
+ *   <input id="v" icon="push.const.svg" description="Streams that receive the constant value"/>
  * </block>
  */
 class ConstF32 : public Constant<F32> {
  public:
   explicit ConstF32(u32 blockId, F32 v = 1) : Constant<F32>(blockId, v) {}
-
-  using v = Pss<F32>*;
 };
 
 /**
@@ -205,15 +187,13 @@ class ConstF32 : public Constant<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input icon="push.cos-gen.svg" description="Streams that receive the cosine wave"/>
+ *   <input id="v" icon="push.cos-gen.svg" description="Streams that receive the cosine wave"/>
  * </block>
  */
 class CosGenF32 : public WaveGen<F32> {
  public:
   explicit CosGenF32(u32 blockId, u32 precision = 10, F32 frequency = 1, F32 amplitude = 1, F32 phase = 0)
       : WaveGen<F32>(blockId, precision, frequency, amplitude, phase) {}
-
-  using v = Pss<F32>*;
 
  protected:
   [[nodiscard]] F32 wave(F32 angle) const override { return math::cos(angle); }
@@ -233,15 +213,13 @@ class CosGenF32 : public WaveGen<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input icon="push.sin-gen.svg" description="Streams that receive the sine wave"/>
+ *   <input id="v" icon="push.sin-gen.svg" description="Streams that receive the sine wave"/>
  * </block>
  */
 class SinGenF32 : public WaveGen<F32> {
  public:
   explicit SinGenF32(u32 blockId, u32 precision = 10, F32 frequency = 1, F32 amplitude = 1, F32 phase = 0)
       : WaveGen<F32>(blockId, precision, frequency, amplitude, phase) {}
-
-  using v = Pss<F32>*;
 
  protected:
   [[nodiscard]] F32 wave(F32 angle) const override { return math::sin(angle); }
@@ -255,14 +233,12 @@ class SinGenF32 : public WaveGen<F32> {
  *   <conf id="amplitude" type="f32">
  *     <control type="text_input" default="1" format="f32"/>
  *   </conf>
- *   <input icon="push.rand-gen.svg" description="Streams that receive the random value"/>
+ *   <input id="v" icon="push.rand-gen.svg" description="Streams that receive the random value"/>
  * </block>
  */
 class RandGenF32 : public RandGen<F32> {
  public:
   explicit RandGenF32(u32 blockId, u32 precision = 10, F32 amplitude = 1) : RandGen<F32>(blockId, precision, amplitude) {}
-
-  using v = Pss<F32>*;
 };
 
 /**
@@ -279,15 +255,13 @@ class RandGenF32 : public RandGen<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input icon="push.pulse-gen.svg" description="Streams that receive the pulse"/>
+ *   <input id="v" icon="push.pulse-gen.svg" description="Streams that receive the pulse"/>
  * </block>
  */
 class PulseGenF32 : public PulseGen<F32> {
  public:
   explicit PulseGenF32(u32 blockId, F32 dutyCycle = 0.5f, F32 amplitude = 1, F32 frequency = 1, F32 phase = 0)
       : PulseGen<F32>(blockId, dutyCycle, amplitude, frequency, phase) {}
-
-  using v = Pss<F32>*;
 };
 
 }  // namespace sources
