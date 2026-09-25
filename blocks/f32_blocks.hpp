@@ -28,10 +28,8 @@ namespace transformers {
 
 /**
  * <block id="cos_f32" icon="cos.svg" title="cos" description="Computes the cosine of the input value">
- *   <input name="v" vector="true"/>
- *   <output name="cos" vector="false">
- *     <type name="pss"/>
- *   </output>
+ *   <input icon="cos.svg" description="Value whose cosine is computed"/>
+ *   <output icon="cos.svg" description="Cosine of the input value"/>
  * </block>
  */
 class CosF32 : public UnaryTransformer<F32> {
@@ -47,10 +45,8 @@ class CosF32 : public UnaryTransformer<F32> {
 
 /**
  * <block id="sin_f32" icon="sin.svg" title="sin" description="Computes the sine of the input value">
- *   <input name="v" vector="true"/>
- *   <output name="sin" vector="false">
- *     <type name="pss"/>
- *   </output>
+ *   <input icon="sin.svg" description="Value whose sine is computed"/>
+ *   <output icon="sin.svg" description="Sine of the input value"/>
  * </block>
  */
 class SinF32 : public UnaryTransformer<F32> {
@@ -69,10 +65,8 @@ class SinF32 : public UnaryTransformer<F32> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input name="v" vector="true"/>
- *   <output name="p" vector="true">
- *     <type name="pss"/>
- *   </output>
+ *   <input icon="product.svg" description="Values to multiply"/>
+ *   <output icon="product.svg" description="Product of the input values"/>
  * </block>
  */
 class ProductF32 : public Aggregate<F32> {
@@ -91,10 +85,8 @@ class ProductF32 : public Aggregate<F32> {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <input name="v" vector="true"/>
- *   <output name="s" vector="true">
- *     <type name="pss"/>
- *   </output>
+ *   <input icon="sum.svg" description="Values to add"/>
+ *   <output icon="sum.svg" description="Sum of the input values"/>
  * </block>
  */
 class SumF32 : public Aggregate<F32> {
@@ -123,9 +115,7 @@ namespace sinks {
  *   <conf id="precision" type="u32">
  *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
  *   </conf>
- *   <output name="sink" vector="true">
- *     <type name="pss"/>
- *   </output>
+ *   <output icon="scope.svg" description="Scope channel"/>
  * </block>
  */
 class ScopeF32 : public Scope<F32> {
@@ -163,7 +153,7 @@ namespace sources {
  *       <implementation>the pin numbers should be unique and sorted ascending</implementation>
  *     </control>
  *   </conf>
- *   <input name="pin" vector="true">
+ *   <input icon="push.gpio_in.svg" description="Reads one configured GPIO pin">
  *     <concept>
  *       <length>
  *         <bind type="conf" id="pins">
@@ -191,7 +181,7 @@ class GpioInF32 : public GpioIn<F32> {
  *       <implementation>the control should be able to define a constant value</implementation>
  *     </control>
  *   </conf>
- *   <input name="v" vector="true"/>
+ *   <input icon="push.const.svg" description="Streams that receive the constant value"/>
  * </block>
  */
 class ConstF32 : public Constant<F32> {
@@ -215,7 +205,7 @@ class ConstF32 : public Constant<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true"/>
+ *   <input icon="push.cos-gen.svg" description="Streams that receive the cosine wave"/>
  * </block>
  */
 class CosGenF32 : public WaveGen<F32> {
@@ -243,7 +233,7 @@ class CosGenF32 : public WaveGen<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true"/>
+ *   <input icon="push.sin-gen.svg" description="Streams that receive the sine wave"/>
  * </block>
  */
 class SinGenF32 : public WaveGen<F32> {
@@ -265,7 +255,7 @@ class SinGenF32 : public WaveGen<F32> {
  *   <conf id="amplitude" type="f32">
  *     <control type="text_input" default="1" format="f32"/>
  *   </conf>
- *   <input name="v" vector="true"/>
+ *   <input icon="push.rand-gen.svg" description="Streams that receive the random value"/>
  * </block>
  */
 class RandGenF32 : public RandGen<F32> {
@@ -289,7 +279,7 @@ class RandGenF32 : public RandGen<F32> {
  *   <conf id="phase" type="f32">
  *     <control type="text_input" default="0" format="f32" unit="Radians"/>
  *   </conf>
- *   <input name="v" vector="true"/>
+ *   <input icon="push.pulse-gen.svg" description="Streams that receive the pulse"/>
  * </block>
  */
 class PulseGenF32 : public PulseGen<F32> {
