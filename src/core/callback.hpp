@@ -2,66 +2,32 @@
 
 #include <core/types.hpp>
 
-/**
- * Function
- * @brief A callable that returns R from its argument values.
- * @image function.svg
- */
-template <typename R, typename... Args> class Function {
-public:
-  virtual ~Function() = default;
-  virtual R operator()(Args... args) = 0;
-};
-
-/**
- * Callback
- * @brief A callback with no arguments.
- * @image consumer.svg
- */
 using Callback = Consumer<>;
 
-/**
- * MemberCallback
- * @brief Invokes a callback method on an existing object.
- * @image consumer.svg
- */
-template <typename Target, void (Target::*Method)()> class MemberCallback final : public Callback {
+template <auto Method> class MemberConsumer;
+
+template <typename Target, typename... Args, void (Target::*Method)(Args...)>
+class MemberConsumer<Method> final : public Consumer<Args...> {
 public:
-  constexpr explicit MemberCallback(Target *const target) : target_(target) {}
-  void operator()() override { (target_->*Method)(); }
+  constexpr explicit MemberConsumer(Target *const target) : target(target) {}
+  void operator()(Args... args) override { (target->*Method)(args...); }
 
 private:
-  Target *target_;
+  Target *target;
 };
 
-/**
- * MemberConsumer
- * @brief Forwards one consumed value to an object method.
- * @image consumer.svg
- */
-template <typename Target, typename T, void (Target::*Method)(T)> class MemberConsumer final : public Consumer<T> {
-public:
-  constexpr explicit MemberConsumer(Target *const target) : target_(target) {}
-  void operator()(T value) override { (target_->*Method)(value); }
+template <auto Method> class IndexedMemberConsumer;
 
-private:
-  Target *target_;
-};
-
-/**
- * IndexedMemberConsumer
- * @brief Forwards a consumed value and channel index to an object method.
- * @image consumer.svg
- */
-template <typename Target, typename T, void (Target::*Method)(u8, T)> class IndexedMemberConsumer final : public Consumer<T> {
+template <typename Target, typename... Args, void (Target::*Method)(u8, Args...)>
+class IndexedMemberConsumer<Method> final : public Consumer<Args...> {
 public:
   constexpr IndexedMemberConsumer(Target *const target,
                                   const u8      index)
-      : target_(target),
-        index_(index) {}
-  void operator()(T value) override { (target_->*Method)(index_, value); }
+      : target(target),
+        index(index) {}
+  void operator()(Args... args) override { (target->*Method)(index, args...); }
 
 private:
-  Target *target_;
-  u8      index_;
+  Target *target;
+  u8      index;
 };

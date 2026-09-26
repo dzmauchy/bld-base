@@ -19,26 +19,26 @@ public:
                   Array<u8> pins = {0})
       : NativeBlock<I,
                     void>(blockId),
-        port_(port),
-        pins_(move(pins)) {}
+        port(port),
+        pins(move(pins)) {}
 
   void apply(I input) override {
-    connected_ = static_cast<u8>(input.pins.size() < kMaxPins ? input.pins.size() : kMaxPins);
-    for (u8 i = 0; i < connected_; ++i) {
-      pinConsumers_[i] = move(input.pins[i]);
+    connected = static_cast<u8>(input.pins.size() < kMaxPins ? input.pins.size() : kMaxPins);
+    for (u8 i = 0; i < connected; ++i) {
+      pinConsumers[i] = move(input.pins[i]);
     }
-    for (u32 i = 0; i < pins_.size() && i < kMaxPins; ++i) {
-      slots_[i].parent = this;
-      slots_[i].pinNumber = pins_[i];
-      slots_[i].callback.slot = &slots_[i];
-      handles_[i] = this->setGpio(port_, pins_[i], slots_[i].callback);
-      handleCount_ = i + 1;
+    for (u32 i = 0; i < pins.size() && i < kMaxPins; ++i) {
+      slots[i].parent = this;
+      slots[i].pinNumber = pins[i];
+      slots[i].callback.slot = &slots[i];
+      handles[i] = this->setGpio(port, pins[i], slots[i].callback);
+      handleCount = i + 1;
     }
-    this->onClose(closeCb_);
+    this->onClose(closeCb);
   }
 
-  const u16       port_;
-  const Array<u8> pins_;
+  const u16       port;
+  const Array<u8> pins;
 
   static constexpr u8 kMaxPins = 8;
 
@@ -66,33 +66,33 @@ public:
 private:
   [[nodiscard]]
   auto searchPin(const u8 pin) const -> u32 {
-    for (u32 i = 0; i < pins_.size(); ++i) {
-      if (pins_[i] == pin) {
+    for (u32 i = 0; i < pins.size(); ++i) {
+      if (pins[i] == pin) {
         return i;
       }
     }
-    return pins_.size();
+    return pins.size();
   }
 
   void emitPin(const u8 pinNumber) const {
     const auto idx = searchPin(pinNumber);
-    if (idx < connected_) {
-      this->pushTo(pinConsumers_[idx], read_gpio(port_, pinNumber) ? T{1} : T{0});
+    if (idx < connected) {
+      this->pushTo(pinConsumers[idx], read_gpio(port, pinNumber) ? T{1} : T{0});
     }
   }
 
   void handleClose() {
-    for (u32 i = 0; i < handleCount_; ++i) {
-      this->clearGpio(handles_[i]);
+    for (u32 i = 0; i < handleCount; ++i) {
+      this->clearGpio(handles[i]);
     }
   }
 
-  Vectorized<Consumer<T>>                      pinConsumers_[kMaxPins]{};
-  PinSlot                                      slots_[kMaxPins]{};
-  u32                                          handles_[kMaxPins]{};
-  u32                                          handleCount_{0};
-  u8                                           connected_{0};
-  MemberCallback<GpioIn, &GpioIn::handleClose> closeCb_{this};
+  Vectorized<Consumer<T>>              pinConsumers[kMaxPins]{};
+  PinSlot                              slots[kMaxPins]{};
+  u32                                  handles[kMaxPins]{};
+  u32                                  handleCount{0};
+  u8                                   connected{0};
+  MemberConsumer<&GpioIn::handleClose> closeCb{this};
 };
 
 template <typename I> void GpioIn<I>::PinSlot::Cbk::operator()() { slot->parent->emitPin(slot->pinNumber); }

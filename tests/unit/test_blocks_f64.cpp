@@ -24,7 +24,7 @@ struct BlocksFixture {
   BlocksFixture() { MockRuntime::reset(); }
 };
 
-}  // namespace
+} // namespace
 
 TEST_SUITE("f64 blocks") {
   TEST_CASE_FIXTURE(BlocksFixture, "ConstFansOut") {
@@ -37,7 +37,7 @@ TEST_SUITE("f64 blocks") {
 
     CHECK_EQ(MockRuntime::lastF64(0, 0), 8.0);
     CHECK_EQ(MockRuntime::lastF64(0, 1), 8.0);
-    CHECK_EQ(constant.value_, 8.0);
+    CHECK_EQ(constant.value, 8.0);
   }
 
   TEST_CASE_FIXTURE(BlocksFixture, "CosThenSin") {
@@ -116,7 +116,7 @@ TEST_SUITE("f64 blocks") {
     MockRuntime::setNow(500);
     MockRuntime::tick();
     CHECK_EQ(MockRuntime::lastF64(0, 2), 0.0);
-    CHECK_EQ(cos.intervalMs_, 10);
+    CHECK_EQ(cos.intervalMs, 10);
   }
 
   TEST_CASE_FIXTURE(BlocksFixture, "RandomAndGpio") {

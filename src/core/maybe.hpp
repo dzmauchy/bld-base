@@ -15,7 +15,7 @@ public:
   Maybe(const Maybe &) = delete;
   Maybe &operator=(const Maybe &) = delete;
   Maybe(Maybe &&other) {
-    if (other.has_) {
+    if (other.has) {
       emplace(move(*other.ptr()));
       other.reset();
     }
@@ -24,31 +24,31 @@ public:
 
   template <typename... Args> T &emplace(Args &&...args) {
     reset();
-    new (buf_) T(static_cast<Args &&>(args)...);
-    has_ = true;
+    new (buf) T(static_cast<Args &&>(args)...);
+    has = true;
     return *ptr();
   }
 
   void reset() {
-    if (has_) {
+    if (has) {
       ptr()->~T();
-      has_ = false;
+      has = false;
     }
   }
 
-  explicit operator bool() const { return has_; }
+  explicit operator bool() const { return has; }
   T       &operator*() { return *ptr(); }
   const T &operator*() const { return *ptr(); }
   T       *operator->() { return ptr(); }
   const T *operator->() const { return ptr(); }
 
 private:
-  T *ptr() { return reinterpret_cast<T *>(buf_); }
+  T *ptr() { return reinterpret_cast<T *>(buf); }
   [[nodiscard]]
   const T *ptr() const {
-    return reinterpret_cast<const T *>(buf_);
+    return reinterpret_cast<const T *>(buf);
   }
 
-  alignas(T) unsigned char buf_[sizeof(T)]{};
-  bool has_ = false;
+  alignas(T) unsigned char buf[sizeof(T)]{};
+  bool has = false;
 };

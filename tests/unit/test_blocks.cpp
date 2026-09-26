@@ -28,7 +28,7 @@ struct BlocksFixture {
 
 constexpr f32 kEps = 1e-5f;
 
-}  // namespace
+} // namespace
 
 TEST_SUITE("ScopeF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotReportAValueBeforeAnyPush") {
@@ -59,8 +59,8 @@ TEST_SUITE("ScopeF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "KeepsConfiguredPeriodAndPrecision") {
     const auto scope = ScopeF32(3, 120, 25);
     CHECK_EQ(scope.blockId, 3);
-    CHECK_EQ(scope.period_, 120);
-    CHECK_EQ(scope.precision_, 25);
+    CHECK_EQ(scope.period, 120);
+    CHECK_EQ(scope.precision, 25);
   }
 }
 
@@ -88,7 +88,7 @@ TEST_SUITE("ConstF32") {
     CHECK_EQ(MockRuntime::lastF32(0, 1), 8.f);
   }
 
-  TEST_CASE_FIXTURE(BlocksFixture, "DefaultValueIsOne") { CHECK_EQ(ConstF32(0).value_, 1.f); }
+  TEST_CASE_FIXTURE(BlocksFixture, "DefaultValueIsOne") { CHECK_EQ(ConstF32(0).value, 1.f); }
 
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotRegisterAnInterval") {
     auto constant = ConstF32(1, 9.f);
@@ -158,7 +158,7 @@ TEST_SUITE("ProductF32") {
     MockRuntime::tick();
 
     CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
-    CHECK_EQ(product.precision_, 10);
+    CHECK_EQ(product.precision, 10);
   }
 
   TEST_CASE_FIXTURE(BlocksFixture, "SingleFactorIsTheProduct") {
@@ -281,7 +281,7 @@ TEST_SUITE("WaveGenerators") {
     MockRuntime::start();
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
-    CHECK_EQ(gen.intervalMs_, 25);
+    CHECK_EQ(gen.intervalMs, 25);
   }
 
   TEST_CASE_FIXTURE(BlocksFixture, "OnCloseClearsGeneratorInterval") {
@@ -436,9 +436,9 @@ TEST_SUITE("CompositeDiagrams") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "EachBlockOwnsItsCapturedCallbacks") {
     constexpr auto kCount = u8{70};
-    auto scope = ScopeF32(0);
-    auto sinks = scope.apply({.channelCount = kCount}).channels;
-    auto constants = std::vector<ConstF32>{};
+    auto           scope = ScopeF32(0);
+    auto           sinks = scope.apply({.channelCount = kCount}).channels;
+    auto           constants = std::vector<ConstF32>{};
     constants.reserve(kCount);
     for (auto i : std::views::iota(u8{}, kCount)) {
       constants.emplace_back(static_cast<u32>(i) + 1, static_cast<f32>(i));

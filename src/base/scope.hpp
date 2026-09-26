@@ -18,13 +18,13 @@ public:
                  const u32 precision = 10)
       : NativeBlock<I,
                     O>(blockId),
-        period_(period),
-        precision_(precision) {}
+        period(period),
+        precision(precision) {}
 
   O apply(const I input) override { return O{.channels = makeChannels(input.channelCount)}; }
 
-  const u32 period_;
-  const u32 precision_;
+  const u32 period;
+  const u32 precision;
 
 protected:
   using NativeBlock<I, O>::NativeBlock;
@@ -36,15 +36,15 @@ private:
   }
 
   auto makeChannels(const u8 n) -> Vectorized<Consumer<T>> {
-    channels_.clear();
-    channels_.reserve(n);
+    channels.clear();
+    channels.reserve(n);
     for (u8 i = 0; i < n; ++i) {
-      channels_.emplace_back(this, i);
+      channels.emplace_back(this, i);
     }
-    return this->template pointersOf<T>(channels_);
+    return this->template pointersOf<T>(channels);
   }
 
-  Array<IndexedMemberConsumer<Scope, T, &Scope::handlePush>> channels_{};
+  Array<IndexedMemberConsumer<&Scope::handlePush>> channels{};
 };
 
 } // namespace push

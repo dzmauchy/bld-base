@@ -18,8 +18,8 @@ public:
   ~UnaryTransformer() override = default;
 
   O apply(I input) override {
-    downstream_ = move(input.downstream);
-    return O{.consumer = &pushConsumer_};
+    downstream = move(input.downstream);
+    return O{.consumer = &pushConsumer};
   }
 
 protected:
@@ -27,10 +27,10 @@ protected:
   virtual T transform(T value) const = 0;
 
 private:
-  void handlePush(const T value) { this->pushTo(downstream_, transform(value)); }
+  void handlePush(const T value) { this->pushTo(downstream, transform(value)); }
 
-  Vectorized<Consumer<T>>                                            downstream_{};
-  MemberConsumer<UnaryTransformer, T, &UnaryTransformer::handlePush> pushConsumer_{this};
+  Vectorized<Consumer<T>>                       downstream{};
+  MemberConsumer<&UnaryTransformer::handlePush> pushConsumer{this};
 };
 
 } // namespace push

@@ -18,20 +18,20 @@ public:
                     const T   value = 1)
       : NativeBlock<I,
                     void>(blockId),
-        value_(value) {}
+        value(value) {}
 
   void apply(I input) override {
-    downstream_ = move(input.downstream);
-    this->onStart(startCb_);
+    downstream = move(input.downstream);
+    this->onStart(startCb);
   }
 
-  const T value_;
+  const T value;
 
 private:
-  void handleStart() { this->pushTo(downstream_, value_); }
+  void handleStart() { this->pushTo(downstream, value); }
 
-  Vectorized<Consumer<T>>                          downstream_{};
-  MemberCallback<Constant, &Constant::handleStart> startCb_{this};
+  Vectorized<Consumer<T>>                downstream{};
+  MemberConsumer<&Constant::handleStart> startCb{this};
 };
 
 } // namespace push

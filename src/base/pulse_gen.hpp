@@ -21,30 +21,30 @@ public:
                     const T   phase = 0)
       : PeriodicSource<I>(blockId,
                           1),
-        dutyCycle_(dutyCycle),
-        amplitude_(amplitude),
-        frequency_(frequency),
-        phase_(phase) {}
+        dutyCycle(dutyCycle),
+        amplitude(amplitude),
+        frequency(frequency),
+        phase(phase) {}
 
   ~PulseGen() override = default;
 
-  const T dutyCycle_;
-  const T amplitude_;
-  const T frequency_;
-  const T phase_;
+  const T dutyCycle;
+  const T amplitude;
+  const T frequency;
+  const T phase;
 
 protected:
-  void onStarted() override { t0_ = get_time(); }
+  void onStarted() override { t0 = get_time(); }
 
   T sample() override {
-    const auto elapsedSec = static_cast<T>(static_cast<::f64>(get_time() - t0_) * 0.001);
-    const auto angle = math::wrapTwoPi(elapsedSec * frequency_ * math::kTwoPi<T> + phase_);
+    const auto elapsedSec = static_cast<T>(static_cast<::f64>(get_time() - t0) * 0.001);
+    const auto angle = math::wrapTwoPi(elapsedSec * frequency * math::kTwoPi<T> + phase);
     const auto progress = angle / math::kTwoPi<T>;
-    return progress < dutyCycle_ ? amplitude_ : T{0};
+    return progress < dutyCycle ? amplitude : T{0};
   }
 
 private:
-  u64 t0_{0};
+  u64 t0{0};
 };
 
 } // namespace push

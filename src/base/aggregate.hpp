@@ -15,16 +15,16 @@ public:
                      const u32 precision = 10)
       : NativeBlock<I,
                     O>(blockId),
-        precision_(precision) {}
+        precision(precision) {}
 
   ~Aggregate() override = default;
 
   O apply(I input) override {
-    downstream_ = move(input.downstream);
+    downstream = move(input.downstream);
     return O{.channels = bindInputs(input.channelCount)};
   }
 
-  const u32 precision_;
+  const u32 precision;
 
 protected:
   [[nodiscard]]
@@ -34,48 +34,48 @@ protected:
 private:
   void handleChannel(const u8 index,
                      const T  value) {
-    values_[index] = value;
+    values[index] = value;
   }
 
   void handleTick() { emitIfFinite(); }
 
-  void handleStart() { this->armInterval(precision_, tickCb_, closeCb_); }
+  void handleStart() { this->armInterval(precision, tickCb, closeCb); }
 
   auto bindInputs(const u8 n) -> Vectorized<Consumer<T>> {
-    values_.assign(n, nan_of<T>());
-    inputs_.clear();
-    inputs_.reserve(n);
+    values.assign(n, nan_of<T>());
+    inputs.clear();
+    inputs.reserve(n);
     for (u8 i = 0; i < n; ++i) {
-      inputs_.emplace_back(this, i);
+      inputs.emplace_back(this, i);
     }
-    this->onStart(startCb_);
-    return this->template pointersOf<T>(inputs_);
+    this->onStart(startCb);
+    return this->template pointersOf<T>(inputs);
   }
 
   void emitIfFinite() const {
-    if (values_.empty()) {
+    if (values.empty()) {
       return;
     }
-    for (auto value : values_) {
+    for (auto value : values) {
       if (!is_finite(value)) {
         return;
       }
     }
-    auto acc = values_[0];
-    for (u32 i = 1; i < values_.size(); ++i) {
-      acc = combine(acc, values_[i]);
+    auto acc = values[0];
+    for (u32 i = 1; i < values.size(); ++i) {
+      acc = combine(acc, values[i]);
     }
     if (is_finite(acc)) {
-      this->pushTo(downstream_, acc);
+      this->pushTo(downstream, acc);
     }
   }
 
-  Vectorized<Consumer<T>>                                               downstream_{};
-  Array<T>                                                              values_{};
-  Array<IndexedMemberConsumer<Aggregate, T, &Aggregate::handleChannel>> inputs_{};
-  MemberCallback<Aggregate, &Aggregate::handleTick>                     tickCb_{this};
-  MemberCallback<Aggregate, &Aggregate::handleStart>                    startCb_{this};
-  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback>              closeCb_{};
+  Vectorized<Consumer<T>>                                  downstream{};
+  Array<T>                                                 values{};
+  Array<IndexedMemberConsumer<&Aggregate::handleChannel>>  inputs{};
+  MemberConsumer<&Aggregate::handleTick>                   tickCb{this};
+  MemberConsumer<&Aggregate::handleStart>                  startCb{this};
+  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback> closeCb{};
 };
 
 } // namespace push

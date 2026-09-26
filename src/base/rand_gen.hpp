@@ -19,14 +19,14 @@ public:
                    const T   amplitude = 1)
       : PeriodicSource<I>(blockId,
                           precision),
-        amplitude_(amplitude) {}
+        amplitude(amplitude) {}
 
   ~RandGen() override = default;
 
-  const T amplitude_;
+  const T amplitude;
 
 protected:
-  T sample() override { return random_of<T>() * amplitude_; }
+  T sample() override { return random_of<T>() * amplitude; }
 };
 
 } // namespace push

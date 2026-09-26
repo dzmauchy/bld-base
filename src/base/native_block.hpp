@@ -24,11 +24,11 @@ protected:
    */
   class ClearIntervalCallback final : public Callback {
   public:
-    explicit ClearIntervalCallback(const u32 timer) : timer_(timer) {}
-    void operator()() override { clearInterval(timer_); }
+    explicit ClearIntervalCallback(const u32 timer) : timer(timer) {}
+    void operator()() override { clearInterval(timer); }
 
   private:
-    u32 timer_;
+    u32 timer;
   };
 
   /**
@@ -38,15 +38,15 @@ protected:
    */
   class ClearGpioHandlesCallback final : public Callback {
   public:
-    explicit ClearGpioHandlesCallback(Array<u32> handles) : handles_(move(handles)) {}
+    explicit ClearGpioHandlesCallback(Array<u32> handles) : handles(move(handles)) {}
     void operator()() override {
-      for (auto handle : handles_) {
+      for (auto handle : handles) {
         clearGpio(handle);
       }
     }
 
   private:
-    Array<u32> handles_;
+    Array<u32> handles;
   };
 
   void onStart(auto &callback) { on_start(&callback); }

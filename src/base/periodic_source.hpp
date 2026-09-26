@@ -18,34 +18,34 @@ public:
   ~PeriodicSource() override = default;
 
   void apply(I input) override {
-    downstream_ = move(input.downstream);
-    this->onStart(startCb_);
+    downstream = move(input.downstream);
+    this->onStart(startCb);
   }
 
-  const u32 intervalMs_;
+  const u32 intervalMs;
 
 protected:
   PeriodicSource(const u32 blockId,
                  const u32 intervalMs)
       : NativeBlock<I,
                     void>(blockId),
-        intervalMs_(intervalMs) {}
+        intervalMs(intervalMs) {}
 
   virtual void onStarted() {}
   virtual T    sample() = 0;
 
-  Vectorized<Consumer<T>> downstream_{};
+  Vectorized<Consumer<T>> downstream{};
 
 private:
-  void handleTick() { this->pushTo(downstream_, sample()); }
+  void handleTick() { this->pushTo(downstream, sample()); }
   void handleStart() {
     onStarted();
-    this->armInterval(intervalMs_, tickCb_, closeCb_);
+    this->armInterval(intervalMs, tickCb, closeCb);
   }
 
-  MemberCallback<PeriodicSource, &PeriodicSource::handleTick>  tickCb_{this};
-  MemberCallback<PeriodicSource, &PeriodicSource::handleStart> startCb_{this};
-  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback>  closeCb_{};
+  MemberConsumer<&PeriodicSource::handleTick>                 tickCb{this};
+  MemberConsumer<&PeriodicSource::handleStart>                startCb{this};
+  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback> closeCb{};
 };
 
 } // namespace push

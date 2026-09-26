@@ -2,7 +2,7 @@ BasedOnStyle: LLVM
 IndentWidth: 2
 TabWidth: 2
 UseTab: Never
-ColumnLimit: 160
+ColumnLimit: 120
 BreakAfterAttributes: Always
 AlignConsecutiveDeclarations: true
 AlignAfterOpenBracket: true
