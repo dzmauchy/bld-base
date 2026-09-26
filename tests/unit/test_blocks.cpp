@@ -8,17 +8,17 @@
 
 #include "../mock_runtime.hpp"
 
-using push::f32::sinks::ScopeF32;
-using push::f32::sources::ConstF32;
-using push::f32::sources::CosGenF32;
-using push::f32::sources::GpioInF32;
-using push::f32::sources::PulseGenF32;
-using push::f32::sources::RandGenF32;
-using push::f32::sources::SinGenF32;
-using push::f32::transformers::CosF32;
-using push::f32::transformers::ProductF32;
-using push::f32::transformers::SinF32;
-using push::f32::transformers::SumF32;
+using push::f_32::sinks::ScopeF32;
+using push::f_32::sources::ConstF32;
+using push::f_32::sources::CosGenF32;
+using push::f_32::sources::GpioInF32;
+using push::f_32::sources::PulseGenF32;
+using push::f_32::sources::RandGenF32;
+using push::f_32::sources::SinGenF32;
+using push::f_32::transformers::CosF32;
+using push::f_32::transformers::ProductF32;
+using push::f_32::transformers::SinF32;
+using push::f_32::transformers::SumF32;
 
 namespace {
 
@@ -438,7 +438,7 @@ TEST_SUITE("CompositeDiagrams") {
     constexpr auto kCount = u8{70};
     auto scope = ScopeF32(0);
     auto sinks = scope.apply({.channelCount = kCount}).channels;
-    auto constants = std::vector<ConstF32<>>{};
+    auto constants = std::vector<ConstF32>{};
     constants.reserve(kCount);
     for (auto i : std::views::iota(u8{}, kCount)) {
       constants.emplace_back(static_cast<u32>(i) + 1, static_cast<f32>(i));

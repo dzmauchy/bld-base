@@ -15,7 +15,7 @@ class Array {
  public:
   Array() = default;
 
-  Array(std::initializer_list<T> values) {
+  Array(const std::initializer_list<T> values) {
     reserve(static_cast<u32>(values.size()));
     for (const auto& value : values) {
       push_back(value);
@@ -29,7 +29,10 @@ class Array {
     }
   }
 
-  Array(Array&& other) noexcept : data_(other.data_), size_(other.size_), cap_(other.cap_) {
+  Array(Array&& other) noexcept
+      : data_(other.data_),
+        size_(other.size_),
+        cap_(other.cap_) {
     other.data_ = nullptr;
     other.size_ = 0;
     other.cap_ = 0;
@@ -63,7 +66,7 @@ class Array {
 
   ~Array() { reset(); }
 
-  void reserve(u32 n) {
+  void reserve(const u32 n) {
     if (n <= cap_) {
       return;
     }
@@ -99,7 +102,8 @@ class Array {
     return data_[size_ - 1];
   }
 
-  void assign(u32 n, const T& value) {
+  void assign(const u32 n,
+              const T&  value) {
     reset();
     reserve(n);
     for (u32 i = 0; i < n; ++i) {
@@ -114,14 +118,26 @@ class Array {
     size_ = 0;
   }
 
-  T& operator[](u32 i) { return data_[i]; }
-  const T& operator[](u32 i) const { return data_[i]; }
-  [[nodiscard]] u32 size() const { return size_; }
-  [[nodiscard]] bool empty() const { return size_ == 0; }
+  T&       operator[](const u32 i) { return data_[i]; }
+  const T& operator[](const u32 i) const { return data_[i]; }
+  [[nodiscard]]
+  u32 size() const {
+    return size_;
+  }
+  [[nodiscard]]
+  bool empty() const {
+    return size_ == 0;
+  }
   T* begin() { return data_; }
   T* end() { return data_ + size_; }
-  const T* begin() const { return data_; }
-  const T* end() const { return data_ + size_; }
+  [[nodiscard]]
+  const T* begin() const {
+    return data_;
+  }
+  [[nodiscard]]
+  const T* end() const {
+    return data_ + size_;
+  }
 
  private:
   void grow() {
@@ -139,7 +155,7 @@ class Array {
     }
   }
 
-  T* data_ = nullptr;
+  T*  data_ = nullptr;
   u32 size_ = 0;
   u32 cap_ = 0;
 };
@@ -148,7 +164,8 @@ template <typename T>
 using Vectorized = Array<T*>;
 
 template <typename T>
-[[nodiscard]] Array<T> arrayFrom(const T* items, u32 count) {
+Array<T> arrayFrom(const T* const items,
+                   const u32      count) {
   auto result = Array<T>{};
   for (u32 i = 0; i < count; ++i) {
     result.push_back(items[i]);

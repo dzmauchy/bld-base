@@ -2,11 +2,6 @@
 
 #include <base/native_block.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 /**
@@ -19,9 +14,15 @@ class Scope : public NativeBlock<I, O> {
  public:
   using T = O::Value;
 
-  explicit Scope(u32 blockId, u32 period = 60, u32 precision = 10) : NativeBlock<I, O>(blockId), period_(period), precision_(precision) {}
+  explicit Scope(const u32 blockId,
+                 const u32 period = 60,
+                 const u32 precision = 10)
+      : NativeBlock<I,
+                    O>(blockId),
+        period_(period),
+        precision_(precision) {}
 
-  [[nodiscard]] O apply(I input) override { return O{.channels = makeChannels(input.channelCount)}; }
+  O apply(const I input) override { return O{.channels = makeChannels(input.channelCount)}; }
 
   const u32 period_;
   const u32 precision_;
@@ -30,9 +31,12 @@ class Scope : public NativeBlock<I, O> {
   using NativeBlock<I, O>::NativeBlock;
 
  private:
-  void handlePush(u8 channel, T value) { this->sendValue(channel, value); }
+  void handlePush(const u8 channel,
+                  const T  value) {
+    this->sendValue(channel, value);
+  }
 
-  [[nodiscard]] auto makeChannels(u8 n) -> Vectorized<Consumer<T>> {
+  auto makeChannels(const u8 n) -> Vectorized<Consumer<T>> {
     channels_.clear();
     channels_.reserve(n);
     for (u8 i = 0; i < n; ++i) {

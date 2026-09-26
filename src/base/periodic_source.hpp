@@ -4,11 +4,6 @@
 #include <core/maybe.hpp>
 #include <core/move.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 /**
@@ -31,10 +26,14 @@ class PeriodicSource : public NativeBlock<I, void> {
   const u32 intervalMs_;
 
  protected:
-  PeriodicSource(u32 blockId, u32 intervalMs) : NativeBlock<I, void>(blockId), intervalMs_(intervalMs) {}
+  PeriodicSource(const u32 blockId,
+                 const u32 intervalMs)
+      : NativeBlock<I,
+                    void>(blockId),
+        intervalMs_(intervalMs) {}
 
   virtual void onStarted() {}
-  [[nodiscard]] virtual T sample() = 0;
+  virtual T    sample() = 0;
 
   Vectorized<Consumer<T>> downstream_{};
 
@@ -45,9 +44,9 @@ class PeriodicSource : public NativeBlock<I, void> {
     this->armInterval(intervalMs_, tickCb_, closeCb_);
   }
 
-  MemberCallback<PeriodicSource<I>, &PeriodicSource<I>::handleTick> tickCb_{this};
+  MemberCallback<PeriodicSource<I>, &PeriodicSource<I>::handleTick>  tickCb_{this};
   MemberCallback<PeriodicSource<I>, &PeriodicSource<I>::handleStart> startCb_{this};
-  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback> closeCb_{};
+  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback>        closeCb_{};
 };
 
 }  // namespace push

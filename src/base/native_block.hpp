@@ -25,7 +25,7 @@ class NativeBlock : public Block<I, O> {
    */
   class ClearIntervalCallback final : public Callback {
    public:
-    explicit ClearIntervalCallback(u32 timer) : timer_(timer) {}
+    explicit ClearIntervalCallback(const u32 timer) : timer_(timer) {}
     void operator()() override { clearInterval(timer_); }
 
    private:
@@ -54,24 +54,40 @@ class NativeBlock : public Block<I, O> {
 
   void onClose(auto& callback) { on_close(&callback); }
 
-  [[nodiscard]] auto setInterval(auto milliseconds, auto& callback) { return set_interval(milliseconds, &callback); }
+  auto setInterval(const auto milliseconds,
+                   auto&      callback) {
+    return set_interval(milliseconds, &callback);
+  }
 
-  static void clearInterval(auto intervalId) { clear_interval(intervalId); }
+  static void clearInterval(const auto intervalId) { clear_interval(intervalId); }
 
-  [[nodiscard]] auto setGpio(auto port, auto pin, auto& callback) { return set_gpio(port, pin, &callback); }
+  auto setGpio(const auto port,
+               const auto pin,
+               auto&      callback) {
+    return set_gpio(port, pin, &callback);
+  }
 
-  static void clearGpio(auto gpioId) { clear_gpio(gpioId); }
+  static void clearGpio(const auto gpioId) { clear_gpio(gpioId); }
 
-  void armInterval(auto milliseconds, auto& tick, auto& closeSlot) {
+  void armInterval(const auto milliseconds,
+                   auto&      tick,
+                   auto&      closeSlot) {
     auto timer = setInterval(milliseconds, tick);
     closeSlot.emplace(timer);
     onClose(*closeSlot);
   }
 
-  void sendValue(u8 channel, f32 value) const { send_value_f32(this->blockId, channel, value); }
-  void sendValue(u8 channel, f64 value) const { send_value_f64(this->blockId, channel, value); }
+  void sendValue(const u8  channel,
+                 const f32 value) const {
+    send_value_f32(this->blockId, channel, value);
+  }
+  void sendValue(const u8  channel,
+                 const f64 value) const {
+    send_value_f64(this->blockId, channel, value);
+  }
 
-  static void pushTo(const auto& sinks, auto value) {
+  static void pushTo(const auto& sinks,
+                     const auto  value) {
     for (auto* sink : sinks) {
       if (sink) {
         (*sink)(value);
@@ -79,8 +95,9 @@ class NativeBlock : public Block<I, O> {
     }
   }
 
-  template <typename T, typename Item>
-  [[nodiscard]] static auto pointersOf(Array<Item>& items) -> Vectorized<Consumer<T>> {
+  template <typename T,
+            typename Item>
+  static auto pointersOf(Array<Item>& items) -> Vectorized<Consumer<T>> {
     auto result = Vectorized<Consumer<T>>{};
     result.reserve(items.size());
     for (u32 i = 0; i < items.size(); ++i) {

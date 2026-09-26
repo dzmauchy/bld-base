@@ -6,17 +6,17 @@
 
 #include "../mock_runtime.hpp"
 
-using push::f64::sinks::ScopeF64;
-using push::f64::sources::ConstF64;
-using push::f64::sources::CosGenF64;
-using push::f64::sources::GpioInF64;
-using push::f64::sources::PulseGenF64;
-using push::f64::sources::RandGenF64;
-using push::f64::sources::SinGenF64;
-using push::f64::transformers::CosF64;
-using push::f64::transformers::ProductF64;
-using push::f64::transformers::SinF64;
-using push::f64::transformers::SumF64;
+using push::f_64::sinks::ScopeF64;
+using push::f_64::sources::ConstF64;
+using push::f_64::sources::CosGenF64;
+using push::f_64::sources::GpioInF64;
+using push::f_64::sources::PulseGenF64;
+using push::f_64::sources::RandGenF64;
+using push::f_64::sources::SinGenF64;
+using push::f_64::transformers::CosF64;
+using push::f_64::transformers::ProductF64;
+using push::f_64::transformers::SinF64;
+using push::f_64::transformers::SumF64;
 
 namespace {
 

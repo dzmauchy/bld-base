@@ -3,11 +3,6 @@
 #include <core/array.hpp>
 #include <core/types.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 /**
@@ -81,21 +76,9 @@ struct GpioInput {
   Array<Vectorized<Consumer<T>>> pins{};
 };
 
-/**
- * Single precision push dataflows
- * @brief Single precision push dataflows
- * @image push.f32-ns.svg
- */
-namespace f32 {
+}  // namespace push
 
-using F32 = ::f32;
-
-/**
- * Transformers
- * @brief Transformers
- * @image push.transformers-ns.svg
- */
-namespace transformers {
+namespace push::f_32::transformers {
 
 /**
  * CosF32Output
@@ -103,14 +86,14 @@ namespace transformers {
  * @image cos.svg
  */
 struct CosF32Output {
-  using Value = F32;
+  using Value = f32;
 
   /**
    * Cosine input consumer
    * @brief Accepts values whose cosine is pushed to the downstream streams.
    * @image cos.svg
    */
-  Consumer<F32>* consumer{nullptr};
+  Consumer<f32>* consumer{nullptr};
 };
 
 /**
@@ -119,14 +102,14 @@ struct CosF32Output {
  * @image sin.svg
  */
 struct SinF32Output {
-  using Value = F32;
+  using Value = f32;
 
   /**
    * Sine input consumer
    * @brief Accepts values whose sine is pushed to the downstream streams.
    * @image sin.svg
    */
-  Consumer<F32>* consumer{nullptr};
+  Consumer<f32>* consumer{nullptr};
 };
 
 /**
@@ -135,14 +118,14 @@ struct SinF32Output {
  * @image product.svg
  */
 struct ProductF32Output {
-  using Value = F32;
+  using Value = f32;
 
   /**
    * Factor channels
    * @brief One vectorized output containing the consumers for the factors to multiply.
    * @image product.svg
    */
-  Vectorized<Consumer<F32>> channels{};
+  Vectorized<Consumer<f32>> channels{};
 };
 
 /**
@@ -151,24 +134,19 @@ struct ProductF32Output {
  * @image sum.svg
  */
 struct SumF32Output {
-  using Value = F32;
+  using Value = f32;
 
   /**
    * Term channels
    * @brief One vectorized output containing the consumers for the terms to add.
    * @image sum.svg
    */
-  Vectorized<Consumer<F32>> channels{};
+  Vectorized<Consumer<f32>> channels{};
 };
 
-}  // namespace transformers
+}  // namespace push::f_32::transformers
 
-/**
- * Sinks
- * @brief Sinks
- * @image push.sinks-ns.svg
- */
-namespace sinks {
+namespace push::f_32::sinks {
 
 /**
  * ScopeF32Output
@@ -176,35 +154,19 @@ namespace sinks {
  * @image scope.svg
  */
 struct ScopeF32Output {
-  using Value = F32;
+  using Value = f32;
 
   /**
    * Scope channels
    * @brief One vectorized output containing independently observed scope consumers.
    * @image scope.svg
    */
-  Vectorized<Consumer<F32>> channels{};
+  Vectorized<Consumer<f32>> channels{};
 };
 
-}  // namespace sinks
+}  // namespace push::f_32::sinks
 
-}  // namespace f32
-
-/**
- * Double precision push dataflows
- * @brief Double precision push dataflows
- * @image push.f64-ns.svg
- */
-namespace f64 {
-
-using F64 = ::f64;
-
-/**
- * Transformers
- * @brief Transformers
- * @image push.transformers-ns.svg
- */
-namespace transformers {
+namespace push::f_64::transformers {
 
 /**
  * CosF64Output
@@ -212,14 +174,14 @@ namespace transformers {
  * @image cos.svg
  */
 struct CosF64Output {
-  using Value = F64;
+  using Value = f64;
 
   /**
    * Cosine input consumer
    * @brief Accepts values whose cosine is pushed to the downstream streams.
    * @image cos.svg
    */
-  Consumer<F64>* consumer{nullptr};
+  Consumer<f64>* consumer{nullptr};
 };
 
 /**
@@ -228,14 +190,14 @@ struct CosF64Output {
  * @image sin.svg
  */
 struct SinF64Output {
-  using Value = F64;
+  using Value = f64;
 
   /**
    * Sine input consumer
    * @brief Accepts values whose sine is pushed to the downstream streams.
    * @image sin.svg
    */
-  Consumer<F64>* consumer{nullptr};
+  Consumer<f64>* consumer{nullptr};
 };
 
 /**
@@ -244,14 +206,14 @@ struct SinF64Output {
  * @image product.svg
  */
 struct ProductF64Output {
-  using Value = F64;
+  using Value = f64;
 
   /**
    * Factor channels
    * @brief One vectorized output containing the consumers for the factors to multiply.
    * @image product.svg
    */
-  Vectorized<Consumer<F64>> channels{};
+  Vectorized<Consumer<f64>> channels{};
 };
 
 /**
@@ -260,24 +222,19 @@ struct ProductF64Output {
  * @image sum.svg
  */
 struct SumF64Output {
-  using Value = F64;
+  using Value = f64;
 
   /**
    * Term channels
    * @brief One vectorized output containing the consumers for the terms to add.
    * @image sum.svg
    */
-  Vectorized<Consumer<F64>> channels{};
+  Vectorized<Consumer<f64>> channels{};
 };
 
-}  // namespace transformers
+}  // namespace push::f_64::transformers
 
-/**
- * Sinks
- * @brief Sinks
- * @image push.sinks-ns.svg
- */
-namespace sinks {
+namespace push::f_64::sinks {
 
 /**
  * ScopeF64Output
@@ -285,18 +242,14 @@ namespace sinks {
  * @image scope.svg
  */
 struct ScopeF64Output {
-  using Value = F64;
+  using Value = f64;
 
   /**
    * Scope channels
    * @brief One vectorized output containing independently observed scope consumers.
    * @image scope.svg
    */
-  Vectorized<Consumer<F64>> channels{};
+  Vectorized<Consumer<f64>> channels{};
 };
 
-}  // namespace sinks
-
-}  // namespace f64
-
-}  // namespace push
+}  // namespace push::f_64::sinks

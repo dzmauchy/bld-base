@@ -69,3 +69,6 @@ Testing/
 .cache/
 
 .idea/
+
+# Node.js dependencies
+node_modules/

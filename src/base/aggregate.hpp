@@ -5,11 +5,6 @@
 #include <core/maybe.hpp>
 #include <core/move.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 template <typename I, typename O>
@@ -19,7 +14,7 @@ class Aggregate : public NativeBlock<I, O> {
 
   ~Aggregate() override = default;
 
-  [[nodiscard]] O apply(I input) override {
+  O apply(I input) override {
     downstream_ = move(input.downstream);
     return O{.channels = bindInputs(input.channelCount)};
   }
@@ -27,17 +22,26 @@ class Aggregate : public NativeBlock<I, O> {
   const u32 precision_;
 
  protected:
-  explicit Aggregate(u32 blockId, u32 precision = 10) : NativeBlock<I, O>(blockId), precision_(precision) {}
-  [[nodiscard]] virtual T combine(T acc, T value) const = 0;
+  explicit Aggregate(const u32 blockId,
+                     const u32 precision = 10)
+      : NativeBlock<I,
+                    O>(blockId),
+        precision_(precision) {}
+  [[nodiscard]]
+  virtual T combine(T acc,
+                    T value) const = 0;
 
  private:
-  void handleChannel(u8 index, T value) { values_[index] = value; }
+  void handleChannel(const u8 index,
+                     const T  value) {
+    values_[index] = value;
+  }
 
   void handleTick() { emitIfFinite(); }
 
   void handleStart() { this->armInterval(precision_, tickCb_, closeCb_); }
 
-  [[nodiscard]] auto bindInputs(u8 n) -> Vectorized<Consumer<T>> {
+  auto bindInputs(const u8 n) -> Vectorized<Consumer<T>> {
     values_.assign(n, nan_of<T>());
     inputs_.clear();
     inputs_.reserve(n);
@@ -66,12 +70,12 @@ class Aggregate : public NativeBlock<I, O> {
     }
   }
 
-  Vectorized<Consumer<T>> downstream_{};
-  Array<T> values_{};
+  Vectorized<Consumer<T>>                                                           downstream_{};
+  Array<T>                                                                          values_{};
   Array<IndexedMemberConsumer<Aggregate<I, O>, T, &Aggregate<I, O>::handleChannel>> inputs_{};
-  MemberCallback<Aggregate<I, O>, &Aggregate<I, O>::handleTick> tickCb_{this};
-  MemberCallback<Aggregate<I, O>, &Aggregate<I, O>::handleStart> startCb_{this};
-  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback> closeCb_{};
+  MemberCallback<Aggregate<I, O>, &Aggregate<I, O>::handleTick>                     tickCb_{this};
+  MemberCallback<Aggregate<I, O>, &Aggregate<I, O>::handleStart>                    startCb_{this};
+  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback>                          closeCb_{};
 };
 
 }  // namespace push

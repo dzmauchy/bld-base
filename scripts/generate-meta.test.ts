@@ -3,32 +3,33 @@ import { spawnSync } from 'node:child_process';
 import { copyFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import type { BlockMetadata, Metadata, MetadataEntry } from './generate-meta.ts';
 
-const root = fileURLToPath(new URL('../../', import.meta.url));
-const script = path.join(root, '.github/scripts/generate-meta.mjs');
+const root = path.resolve(import.meta.dirname, '..');
+const script = path.join(root, 'scripts/generate-meta.ts');
 const assets = path.resolve(process.env.CLANG_WASM_DIR ?? path.join(root, '.cache/clang-23.1.2'));
-const run = filename => spawnSync(process.execPath, [filename, assets], { cwd: os.tmpdir(), encoding: 'utf8' });
+const run = (filename: string) => spawnSync(process.execPath, [filename, assets], { cwd: os.tmpdir(), encoding: 'utf8' });
 
 test('generates all library ports, documentation, and only the requested metadata', async () => {
   const result = run(script);
   assert.equal(result.status, 0, result.stderr);
   const generated = await readFile(path.join(root, '.cache/meta.json'), 'utf8');
-  const meta = JSON.parse(generated);
+  const meta: Metadata = JSON.parse(generated);
   assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
   assert.equal(meta.blocks.length, 22);
   assert.equal(meta.namespaces.length, 10);
   assert.deepEqual(meta.namespaces.map(entry => entry.id), [
-    'math', 'push', 'push::f32', 'push::f32::sinks', 'push::f32::sources', 'push::f32::transformers',
-    'push::f64', 'push::f64::sinks', 'push::f64::sources', 'push::f64::transformers',
+    'math', 'push', 'push::f_32', 'push::f_32::sinks', 'push::f_32::sources', 'push::f_32::transformers',
+    'push::f_64', 'push::f_64::sinks', 'push::f_64::sources', 'push::f_64::transformers',
   ]);
-  const entryKeys = ['description', 'icon', 'id', 'name', 'namespace'];
-  for (const category of ['namespaces', 'blocks']) {
+  const entryKeys = ['description', 'icon', 'id', 'name', 'namespace'] as const;
+  for (const category of ['namespaces', 'blocks'] as const) {
     const keys = category === 'namespaces' ? entryKeys.filter(key => key !== 'namespace') : entryKeys;
-    const ids = meta[category].map(entry => category === 'namespaces' ? entry.id : `${entry.namespace}::${entry.id}`);
+    const entries: (Omit<MetadataEntry, 'namespace'> & Partial<BlockMetadata>)[] = meta[category];
+    const ids = entries.map(entry => category === 'namespaces' ? entry.id : `${entry.namespace}::${entry.id}`);
     assert.equal(new Set(ids).size, ids.length);
-    for (const entry of meta[category]) {
+    for (const entry of entries) {
       assert.deepEqual(Object.keys(entry).sort(), category === 'blocks'
         ? [...keys, 'inputs', 'outputs'].sort() : keys);
       for (const key of keys) assert.equal(typeof entry[key], 'string');
@@ -54,6 +55,7 @@ test('generates all library ports, documentation, and only the requested metadat
     }
   }
   const cosine = meta.blocks.find(entry => entry.id === 'CosF32');
+  assert.ok(cosine);
   assert.equal(cosine.name, 'cos');
   assert.equal(cosine.icon, 'cos.svg');
   assert.equal(cosine.description, 'Computes the cosine of the input value');
@@ -65,9 +67,9 @@ test('generates all library ports, documentation, and only the requested metadat
 test('reads unincluded headers, UTF-8 comments, and multiple fields; preserves output on compiler failure', async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'bld-meta-'));
   try {
-    await mkdir(path.join(temporary, '.github/scripts'), { recursive: true });
+    await mkdir(path.join(temporary, 'scripts'), { recursive: true });
     await mkdir(path.join(temporary, 'src/core'), { recursive: true });
-    const fixtureScript = path.join(temporary, '.github/scripts/generate-meta.mjs');
+    const fixtureScript = path.join(temporary, 'scripts/generate-meta.ts');
     await copyFile(script, fixtureScript);
     await writeFile(path.join(temporary, 'src/blocks.hpp'), `
 template <typename I, typename O> class Block {};
@@ -99,7 +101,7 @@ class Source : public Block<I, void> {};
     const output = path.join(temporary, '.cache/meta.json');
     await assert.rejects(readFile(path.join(temporary, 'meta.json')), { code: 'ENOENT' });
     const generated = await readFile(output, 'utf8');
-    const meta = JSON.parse(generated);
+    const meta: Metadata = JSON.parse(generated);
     assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
     assert.equal(meta.blocks.length, 2);
     assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['first', 'second']);

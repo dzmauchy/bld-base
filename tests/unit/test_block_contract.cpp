@@ -67,28 +67,28 @@ constexpr bool hasBlockContract =
     } && std::derived_from<B, Block<typename B::Input, typename B::Output>> && std::same_as<typename B::Output, ExpectedOutput> &&
     (std::is_void_v<ExpectedOutput> || (std::is_class_v<ExpectedOutput> && std::is_aggregate_v<ExpectedOutput>));
 
-static_assert(hasBlockContract<push::f32::sources::ConstF32<>, void>);
-static_assert(hasBlockContract<push::f64::sources::ConstF64<>, void>);
-static_assert(hasBlockContract<push::f32::sinks::ScopeF32<>, push::f32::sinks::ScopeF32Output>);
-static_assert(hasBlockContract<push::f64::sinks::ScopeF64<>, push::f64::sinks::ScopeF64Output>);
-static_assert(hasBlockContract<push::f32::transformers::CosF32<>, push::f32::transformers::CosF32Output>);
-static_assert(hasBlockContract<push::f64::transformers::CosF64<>, push::f64::transformers::CosF64Output>);
-static_assert(hasBlockContract<push::f32::transformers::SinF32<>, push::f32::transformers::SinF32Output>);
-static_assert(hasBlockContract<push::f64::transformers::SinF64<>, push::f64::transformers::SinF64Output>);
-static_assert(hasBlockContract<push::f32::transformers::SumF32<>, push::f32::transformers::SumF32Output>);
-static_assert(hasBlockContract<push::f64::transformers::SumF64<>, push::f64::transformers::SumF64Output>);
-static_assert(hasBlockContract<push::f32::transformers::ProductF32<>, push::f32::transformers::ProductF32Output>);
-static_assert(hasBlockContract<push::f64::transformers::ProductF64<>, push::f64::transformers::ProductF64Output>);
-static_assert(hasBlockContract<push::f32::sources::CosGenF32<>, void>);
-static_assert(hasBlockContract<push::f64::sources::CosGenF64<>, void>);
-static_assert(hasBlockContract<push::f32::sources::SinGenF32<>, void>);
-static_assert(hasBlockContract<push::f64::sources::SinGenF64<>, void>);
-static_assert(hasBlockContract<push::f32::sources::RandGenF32<>, void>);
-static_assert(hasBlockContract<push::f64::sources::RandGenF64<>, void>);
-static_assert(hasBlockContract<push::f32::sources::PulseGenF32<>, void>);
-static_assert(hasBlockContract<push::f64::sources::PulseGenF64<>, void>);
-static_assert(hasBlockContract<push::f32::sources::GpioInF32<>, void>);
-static_assert(hasBlockContract<push::f64::sources::GpioInF64<>, void>);
+static_assert(hasBlockContract<push::f_32::sources::ConstF32, void>);
+static_assert(hasBlockContract<push::f_64::sources::ConstF64, void>);
+static_assert(hasBlockContract<push::f_32::sinks::ScopeF32, push::f_32::sinks::ScopeF32Output>);
+static_assert(hasBlockContract<push::f_64::sinks::ScopeF64, push::f_64::sinks::ScopeF64Output>);
+static_assert(hasBlockContract<push::f_32::transformers::CosF32, push::f_32::transformers::CosF32Output>);
+static_assert(hasBlockContract<push::f_64::transformers::CosF64, push::f_64::transformers::CosF64Output>);
+static_assert(hasBlockContract<push::f_32::transformers::SinF32, push::f_32::transformers::SinF32Output>);
+static_assert(hasBlockContract<push::f_64::transformers::SinF64, push::f_64::transformers::SinF64Output>);
+static_assert(hasBlockContract<push::f_32::transformers::SumF32, push::f_32::transformers::SumF32Output>);
+static_assert(hasBlockContract<push::f_64::transformers::SumF64, push::f_64::transformers::SumF64Output>);
+static_assert(hasBlockContract<push::f_32::transformers::ProductF32, push::f_32::transformers::ProductF32Output>);
+static_assert(hasBlockContract<push::f_64::transformers::ProductF64, push::f_64::transformers::ProductF64Output>);
+static_assert(hasBlockContract<push::f_32::sources::CosGenF32, void>);
+static_assert(hasBlockContract<push::f_64::sources::CosGenF64, void>);
+static_assert(hasBlockContract<push::f_32::sources::SinGenF32, void>);
+static_assert(hasBlockContract<push::f_64::sources::SinGenF64, void>);
+static_assert(hasBlockContract<push::f_32::sources::RandGenF32, void>);
+static_assert(hasBlockContract<push::f_64::sources::RandGenF64, void>);
+static_assert(hasBlockContract<push::f_32::sources::PulseGenF32, void>);
+static_assert(hasBlockContract<push::f_64::sources::PulseGenF64, void>);
+static_assert(hasBlockContract<push::f_32::sources::GpioInF32, void>);
+static_assert(hasBlockContract<push::f_64::sources::GpioInF64, void>);
 
 /**
  * DualScopeOutput
@@ -122,7 +122,7 @@ struct DualScopeOutput {
 template <typename I, typename O>
 class DualScope final : public Block<I, O> {
   using T = O::Value;
-  using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f32::sinks::ScopeF32Output, push::f64::sinks::ScopeF64Output>;
+  using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32Output, push::f_64::sinks::ScopeF64Output>;
 
  public:
   explicit DualScope(u32 blockId) : Block<I, O>(blockId), first_(blockId), second_(blockId + 1) {}
@@ -154,7 +154,7 @@ TEST_CASE("Block supports an empty input struct and void output") {
 
 TEST_CASE_TEMPLATE("Push wiring works through typed block references", T, f32, f64) {
   MockRuntime::reset();
-  using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f32::sinks::ScopeF32Output, push::f64::sinks::ScopeF64Output>;
+  using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32Output, push::f_64::sinks::ScopeF64Output>;
   push::Scope<push::ScopeInput, ScopeOutput> scope(0);
   push::Constant<push::DownstreamInput<T>> constant(1, T{3});
   Block<push::ScopeInput, ScopeOutput>& sink = scope;
@@ -174,8 +174,8 @@ TEST_CASE_TEMPLATE("Push wiring works through typed block references", T, f32, f
 
 TEST_CASE("GPIO input preserves disconnected pin positions and fanout") {
   MockRuntime::reset();
-  push::f32::sinks::ScopeF32<> scope(0);
-  push::f32::sources::GpioInF32<> gpio(1, 7, {1, 3});
+  push::f_32::sinks::ScopeF32 scope(0);
+  push::f_32::sources::GpioInF32 gpio(1, 7, {1, 3});
   auto output = scope.apply({.channelCount = 2});
   gpio.apply({.pins = {{}, output.channels}});
   MockRuntime::emitGpio(7, 1, true);

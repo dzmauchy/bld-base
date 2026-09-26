@@ -3,7 +3,7 @@ The project version is `VERSION` in `CMakeLists.txt`.
 
 ## Block interface
 
-Every block has two template parameters, `I` and `O`, and implements or inherits
+Every block uses input and output types, `I` and `O`, and implements or inherits
 `O apply(I input)`. `I` is a struct. `O` is a struct or `void` when there are no
 returned ports. Each field declares one logical input or output port. A vectorized
 output is one field, regardless of how many elements it contains. `Block<I, O>` exposes these types as `Input` and
@@ -12,7 +12,7 @@ output is one field, regardless of how many elements it contains. `Block<I, O>` 
 The push blocks retain their stream behavior: `apply` wires consumer streams,
 and the runtime delivers values through callbacks. Constructor arguments still
 configure the blocks. All input and output wrappers live in `base/ports.hpp`.
-Each f32 and f64 block with outputs has its own default `O` struct in that file,
+Each f32 and f64 block with outputs has its own `O` struct in that file,
 with documentation on every output field:
 
 | Block | Input fields | Output type `O` | Output fields |
@@ -31,22 +31,23 @@ and populate those fields in `apply`.
 ```cpp
 #include <base/f32_blocks.hpp>
 
-push::f32::sinks::ScopeF32<> scope(0);
-push::f32::transformers::CosF32<> cosine(1);
-push::f32::sources::ConstF32<> constant(2, 0.f);
+push::f_32::sinks::ScopeF32 scope(0);
+push::f_32::transformers::CosF32 cosine(1);
+push::f_32::sources::ConstF32 constant(2, 0.f);
 
 void wire() {
-  push::f32::sinks::ScopeF32Output scopeOutput = scope.apply({.channelCount = 1});
-  push::f32::transformers::CosF32Output cosineOutput = cosine.apply({.downstream = scopeOutput.channels});
+  push::f_32::sinks::ScopeF32Output scopeOutput = scope.apply({.channelCount = 1});
+  push::f_32::transformers::CosF32Output cosineOutput = cosine.apply({.downstream = scopeOutput.channels});
   constant.apply({.downstream = {cosineOutput.consumer}});
 }
 ```
 
 Call `wire()` before starting the runtime. Blocks must remain alive at the same
-address while their consumers and runtime callbacks are in use. Use `Class<>`
-when naming a default block specialization in a container or function signature.
-Custom port structs for the provided push implementations must supply the same
-fields and a `Value` type alias where the default struct has one.
+address while their consumers and runtime callbacks are in use. All blocks in
+`push::f_32` and `push::f_64` are concrete classes or aliases, such as `CosF32` and
+`ScopeF32`, and are named without template arguments. For custom ports, use the
+generic implementation templates such as `push::Scope<I, O>`. Custom port structs
+must supply the same fields and a `Value` type alias where the default struct has one.
 
 Documentation uses this format on each declaration:
 
@@ -103,7 +104,7 @@ from [clang-wasm clang-23.1.2](https://github.com/dzmauchy/clang-wasm/releases/t
 Put the three assets in `.cache/clang-23.1.2/`, or pass their directory:
 
 ```sh
-node .github/scripts/generate-meta.mjs /path/to/clang-assets
+npm run build:meta -- /path/to/clang-assets
 ```
 
 The script installs the archive directly into clang's in-memory filesystem and
@@ -115,7 +116,7 @@ JS glue runs in an isolated Node worker. Its `unsupported syscall: __syscall_prl
 warning is harmless for AST generation.
 
 The output has `namespaces` and `blocks` arrays. Namespace entries use fully
-qualified IDs such as `push::f32::sinks` and contain `id`, `name`, `description`,
+qualified IDs such as `push::f_32::sinks` and contain `id`, `name`, `description`,
 and `icon`. Block and port entries also contain `namespace`; blocks have `inputs`
 and `outputs` arrays. Names come from the first
 documentation paragraph, descriptions from `@brief`/`@details`, and icons from
@@ -126,17 +127,28 @@ declaration names; port IDs are field names. C++ type expressions and
 compiler-generated IDs are omitted.
 
 Blocks are descendants of `Block` whose `I` template parameter has a default and
-whose `O` parameter is either absent or has a default. A missing `O` means `void`.
-Their ports come from those default structs; `void` produces an empty output
-array. Generic implementation templates without the required defaults are
-omitted from `blocks`.
+whose `O` parameter is either absent or has a default, plus concrete classes and
+aliases that provide those arguments in a base or aliased specialization.
+A missing `O` means `void`. Ports come from the default
+or explicitly supplied structs; `void` produces an empty output array. Generic
+implementation templates without the required defaults are omitted from `blocks`.
 Repeated namespace declarations and implicit template instances are deduplicated.
 
 Run the metadata checks with the same assets available:
 
 ```sh
-node --test .github/scripts/generate-meta.test.mjs
+npm test
 ```
+
+For IDE support and strict TypeScript checks, install the development dependencies:
+
+```sh
+npm ci
+npm run typecheck
+```
+
+`npm test` runs the metadata checks, and `npm run build:meta` generates metadata.
+The scripts still run directly with Node.js without a compilation step.
 
 ## Host bindings
 

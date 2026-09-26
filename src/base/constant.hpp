@@ -3,11 +3,6 @@
 #include <base/native_block.hpp>
 #include <core/move.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 /**
@@ -20,7 +15,11 @@ class Constant : public NativeBlock<I, void> {
  public:
   using T = I::Value;
 
-  explicit Constant(u32 blockId, T value) : NativeBlock<I, void>(blockId), value_(value) {}
+  explicit Constant(const u32 blockId,
+                    const T   value = 1)
+      : NativeBlock<I,
+                    void>(blockId),
+        value_(value) {}
 
   void apply(I input) override {
     downstream_ = move(input.downstream);
@@ -32,7 +31,7 @@ class Constant : public NativeBlock<I, void> {
  private:
   void handleStart() { this->pushTo(downstream_, value_); }
 
-  Vectorized<Consumer<T>> downstream_{};
+  Vectorized<Consumer<T>>                                downstream_{};
   MemberCallback<Constant<I>, &Constant<I>::handleStart> startCb_{this};
 };
 

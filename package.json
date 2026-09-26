@@ -1,0 +1,18 @@
+{
+  "name": "bld-base",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "format": "find src tests -type f -name '*.hpp' -exec clang-format -i {} +",
+    "typecheck": "tsc --noEmit",
+    "build:meta": "node scripts/generate-meta.ts",
+    "test": "node --test scripts/generate-meta.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.0",
+    "typescript": "^7.0.2"
+  }
+}

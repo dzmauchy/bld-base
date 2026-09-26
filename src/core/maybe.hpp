@@ -39,14 +39,17 @@ class Maybe {
   }
 
   explicit operator bool() const { return has_; }
-  T& operator*() { return *ptr(); }
+  T&       operator*() { return *ptr(); }
   const T& operator*() const { return *ptr(); }
-  T* operator->() { return ptr(); }
+  T*       operator->() { return ptr(); }
   const T* operator->() const { return ptr(); }
 
  private:
   T* ptr() { return reinterpret_cast<T*>(buf_); }
-  const T* ptr() const { return reinterpret_cast<const T*>(buf_); }
+  [[nodiscard]]
+  const T* ptr() const {
+    return reinterpret_cast<const T*>(buf_);
+  }
 
   alignas(T) unsigned char buf_[sizeof(T)]{};
   bool has_ = false;

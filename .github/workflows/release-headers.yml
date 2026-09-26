@@ -32,7 +32,7 @@ jobs:
           done
 
       - name: Generate metadata
-        run: node .github/scripts/generate-meta.mjs
+        run: npm run build:meta
 
       - name: Publish headers
         env:

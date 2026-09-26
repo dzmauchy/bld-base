@@ -3,11 +3,6 @@
 #include <base/periodic_source.hpp>
 #include <core/math/trig.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 /**
@@ -20,6 +15,18 @@ class PulseGen : public PeriodicSource<I> {
  public:
   using T = I::Value;
 
+  explicit PulseGen(const u32 blockId,
+                    const T   dutyCycle = T{0.5},
+                    const T   amplitude = 1,
+                    const T   frequency = 1,
+                    const T   phase = 0)
+      : PeriodicSource<I>(blockId,
+                          1),
+        dutyCycle_(dutyCycle),
+        amplitude_(amplitude),
+        frequency_(frequency),
+        phase_(phase) {}
+
   ~PulseGen() override = default;
 
   const T dutyCycle_;
@@ -28,12 +35,9 @@ class PulseGen : public PeriodicSource<I> {
   const T phase_;
 
  protected:
-  PulseGen(u32 blockId, T dutyCycle, T amplitude, T frequency, T phase)
-      : PeriodicSource<I>(blockId, 1), dutyCycle_(dutyCycle), amplitude_(amplitude), frequency_(frequency), phase_(phase) {}
-
   void onStarted() override { t0_ = get_time(); }
 
-  [[nodiscard]] T sample() override {
+  T sample() override {
     const auto elapsedSec = static_cast<T>(static_cast<::f64>(get_time() - t0_) * 0.001);
     const auto angle = math::wrapTwoPi(elapsedSec * frequency_ * math::kTwoPi<T> + phase_);
     const auto progress = angle / math::kTwoPi<T>;

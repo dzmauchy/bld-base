@@ -8,9 +8,9 @@
 #include "../mock_runtime.hpp"
 
 TEST_CASE_TEMPLATE("Host C bindings drive time, callbacks, GPIO and observations", T, f32, f64) {
-  using Scope = std::conditional_t<std::is_same_v<T, f32>, push::f32::sinks::ScopeF32<>, push::f64::sinks::ScopeF64<>>;
-  using Sine = std::conditional_t<std::is_same_v<T, f32>, push::f32::sources::SinGenF32<>, push::f64::sources::SinGenF64<>>;
-  using Gpio = std::conditional_t<std::is_same_v<T, f32>, push::f32::sources::GpioInF32<>, push::f64::sources::GpioInF64<>>;
+  using Scope = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32, push::f_64::sinks::ScopeF64>;
+  using Sine = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sources::SinGenF32, push::f_64::sources::SinGenF64>;
+  using Gpio = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sources::GpioInF32, push::f_64::sources::GpioInF64>;
 
   MockRuntime::reset();
   Scope scope(0);

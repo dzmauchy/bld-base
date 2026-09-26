@@ -11,38 +11,22 @@
 #include <base/wave_gen.hpp>
 #include <core/math/trig.hpp>
 
-/**
- * Push Dataflows
- * @brief Push Dataflows
- * @image push-ns.svg
- */
-namespace push {
-/**
- * Double precision push dataflows
- * @brief Double precision push dataflows
- * @image push.f64-ns.svg
- */
-namespace f64 {
-
-/**
- * Transformers
- * @brief Transformers
- * @image push.transformers-ns.svg
- */
-namespace transformers {
+namespace push::f_64::transformers {
 
 /**
  * cos
  * @brief Computes the cosine of the input value
  * @image cos.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = CosF64Output>
-class CosF64 : public UnaryTransformer<I, O> {
+class CosF64 : public UnaryTransformer<DownstreamInput<f64>, CosF64Output> {
  public:
-  explicit CosF64(u32 blockId) : UnaryTransformer<I, O>(blockId) {}
+  explicit CosF64(const u32 blockId) : UnaryTransformer(blockId) {}
 
  protected:
-  [[nodiscard]] F64 transform(F64 value) const override { return math::cos(value); }
+  [[nodiscard]]
+  f64 transform(const f64 value) const override {
+    return math::cos(value);
+  }
 };
 
 /**
@@ -50,13 +34,15 @@ class CosF64 : public UnaryTransformer<I, O> {
  * @brief Computes the sine of the input value
  * @image sin.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = SinF64Output>
-class SinF64 : public UnaryTransformer<I, O> {
+class SinF64 : public UnaryTransformer<DownstreamInput<f64>, SinF64Output> {
  public:
-  explicit SinF64(u32 blockId) : UnaryTransformer<I, O>(blockId) {}
+  explicit SinF64(const u32 blockId) : UnaryTransformer(blockId) {}
 
  protected:
-  [[nodiscard]] F64 transform(F64 value) const override { return math::sin(value); }
+  [[nodiscard]]
+  f64 transform(const f64 value) const override {
+    return math::sin(value);
+  }
 };
 
 /**
@@ -64,13 +50,19 @@ class SinF64 : public UnaryTransformer<I, O> {
  * @brief Computes the product of the input values
  * @image product.svg
  */
-template <typename I = AggregateInput<F64>, typename O = ProductF64Output>
-class ProductF64 : public Aggregate<I, O> {
+class ProductF64 : public Aggregate<AggregateInput<f64>, ProductF64Output> {
  public:
-  explicit ProductF64(u32 blockId, u32 precision = 10) : Aggregate<I, O>(blockId, precision) {}
+  explicit ProductF64(const u32 blockId,
+                      const u32 precision = 10)
+      : Aggregate(blockId,
+                  precision) {}
 
  protected:
-  [[nodiscard]] F64 combine(F64 acc, F64 value) const override { return acc * value; }
+  [[nodiscard]]
+  f64 combine(const f64 acc,
+              const f64 value) const override {
+    return acc * value;
+  }
 };
 
 /**
@@ -78,79 +70,73 @@ class ProductF64 : public Aggregate<I, O> {
  * @brief Computes the sum of the input values
  * @image sum.svg
  */
-template <typename I = AggregateInput<F64>, typename O = SumF64Output>
-class SumF64 : public Aggregate<I, O> {
+class SumF64 : public Aggregate<AggregateInput<f64>, SumF64Output> {
  public:
-  explicit SumF64(u32 blockId, u32 precision = 10) : Aggregate<I, O>(blockId, precision) {}
+  explicit SumF64(const u32 blockId,
+                  const u32 precision = 10)
+      : Aggregate(blockId,
+                  precision) {}
 
  protected:
-  [[nodiscard]] F64 combine(F64 acc, F64 value) const override { return acc + value; }
+  [[nodiscard]]
+  f64 combine(const f64 acc,
+              const f64 value) const override {
+    return acc + value;
+  }
 };
 
-}  // namespace transformers
+}  // namespace push::f_64::transformers
 
-/**
- * Sinks
- * @brief Sinks
- * @image push.sinks-ns.svg
- */
-namespace sinks {
+namespace push::f_64::sinks {
 
 /**
  * Scope
  * @brief Displays the input values in a scope
  * @image scope.svg
  */
-template <typename I = ScopeInput, typename O = ScopeF64Output>
-class ScopeF64 : public Scope<I, O> {
- public:
-  explicit ScopeF64(u32 blockId, u32 period = 60, u32 precision = 10) : Scope<I, O>(blockId, period, precision) {}
-};
+using ScopeF64 = Scope<ScopeInput, ScopeF64Output>;
 
-}  // namespace sinks
+}  // namespace push::f_64::sinks
 
-/**
- * Sources
- * @brief Sources
- * @image push.sources-ns.svg
- */
-namespace sources {
+namespace push::f_64::sources {
 
 /**
  * GPIO Input
  * @brief Reads the input value from a GPIO pin
  * @image push.gpio_in.svg
  */
-template <typename I = GpioInput<F64>>
-class GpioInF64 : public GpioIn<I> {
- public:
-  explicit GpioInF64(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<I>(blockId, port, move(pins)) {}
-};
+using GpioInF64 = GpioIn<GpioInput<f64>>;
 
 /**
  * Constant
  * @brief Constant value
  * @image push.const.svg
  */
-template <typename I = DownstreamInput<F64>>
-class ConstF64 : public Constant<I> {
- public:
-  explicit ConstF64(u32 blockId, F64 v = 1) : Constant<I>(blockId, v) {}
-};
+using ConstF64 = Constant<DownstreamInput<f64>>;
 
 /**
  * cos
  * @brief Cosine generator
  * @image push.cos-gen.svg
  */
-template <typename I = DownstreamInput<F64>>
-class CosGenF64 : public WaveGen<I> {
+class CosGenF64 : public WaveGen<DownstreamInput<f64>> {
  public:
-  explicit CosGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
-      : WaveGen<I>(blockId, precision, frequency, amplitude, phase) {}
+  explicit CosGenF64(const u32 blockId,
+                     const u32 precision = 10,
+                     const f64 frequency = 1,
+                     const f64 amplitude = 1,
+                     const f64 phase = 0)
+      : WaveGen(blockId,
+                precision,
+                frequency,
+                amplitude,
+                phase) {}
 
  protected:
-  [[nodiscard]] F64 wave(F64 angle) const override { return math::cos(angle); }
+  [[nodiscard]]
+  f64 wave(const f64 angle) const override {
+    return math::cos(angle);
+  }
 };
 
 /**
@@ -158,14 +144,24 @@ class CosGenF64 : public WaveGen<I> {
  * @brief Sine generator
  * @image push.sin-gen.svg
  */
-template <typename I = DownstreamInput<F64>>
-class SinGenF64 : public WaveGen<I> {
+class SinGenF64 : public WaveGen<DownstreamInput<f64>> {
  public:
-  explicit SinGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
-      : WaveGen<I>(blockId, precision, frequency, amplitude, phase) {}
+  explicit SinGenF64(const u32 blockId,
+                     const u32 precision = 10,
+                     const f64 frequency = 1,
+                     const f64 amplitude = 1,
+                     const f64 phase = 0)
+      : WaveGen(blockId,
+                precision,
+                frequency,
+                amplitude,
+                phase) {}
 
  protected:
-  [[nodiscard]] F64 wave(F64 angle) const override { return math::sin(angle); }
+  [[nodiscard]]
+  f64 wave(const f64 angle) const override {
+    return math::sin(angle);
+  }
 };
 
 /**
@@ -173,25 +169,13 @@ class SinGenF64 : public WaveGen<I> {
  * @brief Random generator
  * @image push.rand-gen.svg
  */
-template <typename I = DownstreamInput<F64>>
-class RandGenF64 : public RandGen<I> {
- public:
-  explicit RandGenF64(u32 blockId, u32 precision = 10, F64 amplitude = 1) : RandGen<I>(blockId, precision, amplitude) {}
-};
+using RandGenF64 = RandGen<DownstreamInput<f64>>;
 
 /**
  * Pulse
  * @brief Pulse signal generator
  * @image push.pulse-gen.svg
  */
-template <typename I = DownstreamInput<F64>>
-class PulseGenF64 : public PulseGen<I> {
- public:
-  explicit PulseGenF64(u32 blockId, F64 dutyCycle = 0.5, F64 amplitude = 1, F64 frequency = 1, F64 phase = 0)
-      : PulseGen<I>(blockId, dutyCycle, amplitude, frequency, phase) {}
-};
+using PulseGenF64 = PulseGen<DownstreamInput<f64>>;
 
-}  // namespace sources
-
-}  // namespace f64
-}  // namespace push
+}  // namespace push::f_64::sources

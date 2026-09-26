@@ -3,11 +3,6 @@
 #include <base/native_block.hpp>
 #include <core/move.hpp>
 
-/**
- * Push
- * @brief Push dataflows.
- * @image push-ns.svg
- */
 namespace push {
 
 /**
@@ -20,7 +15,13 @@ class GpioIn : public NativeBlock<I, void> {
  public:
   using T = I::Value;
 
-  explicit GpioIn(u32 blockId, u16 port, Array<u8> pins) : NativeBlock<I, void>(blockId), port_(port), pins_(move(pins)) {}
+  explicit GpioIn(const u32 blockId,
+                  const u16 port = 0,
+                  Array<u8> pins = {0})
+      : NativeBlock<I,
+                    void>(blockId),
+        port_(port),
+        pins_(move(pins)) {}
 
   void apply(I input) override {
     connected_ = static_cast<u8>(input.pins.size() < kMaxPins ? input.pins.size() : kMaxPins);
@@ -37,7 +38,7 @@ class GpioIn : public NativeBlock<I, void> {
     this->onClose(closeCb_);
   }
 
-  const u16 port_;
+  const u16       port_;
   const Array<u8> pins_;
 
   static constexpr u8 kMaxPins = 8;
@@ -49,22 +50,23 @@ class GpioIn : public NativeBlock<I, void> {
    */
   struct PinSlot {
     GpioIn* parent{nullptr};
-    u8 pinNumber{0};
+    u8      pinNumber{0};
     /**
      * Cbk
      * @brief Delivers a GPIO event to its owning block.
      * @image consumer.svg
      */
     struct Cbk final : public Callback {
-      explicit Cbk(PinSlot* owner) : slot(owner) {}
-      void operator()() override;
+      explicit Cbk(PinSlot* const owner) : slot(owner) {}
+      void     operator()() override;
       PinSlot* slot;
     } callback;
     PinSlot() : callback(this) {}
   };
 
  private:
-  [[nodiscard]] auto searchPin(u8 pin) const -> u32 {
+  [[nodiscard]]
+  auto searchPin(const u8 pin) const -> u32 {
     for (u32 i = 0; i < pins_.size(); ++i) {
       if (pins_[i] == pin) {
         return i;
@@ -73,7 +75,7 @@ class GpioIn : public NativeBlock<I, void> {
     return pins_.size();
   }
 
-  void emitPin(u8 pinNumber) const {
+  void emitPin(const u8 pinNumber) const {
     const auto idx = searchPin(pinNumber);
     if (idx < connected_) {
       this->pushTo(pinConsumers_[idx], read_gpio(port_, pinNumber) ? T{1} : T{0});
@@ -86,11 +88,11 @@ class GpioIn : public NativeBlock<I, void> {
     }
   }
 
-  Vectorized<Consumer<T>> pinConsumers_[kMaxPins]{};
-  PinSlot slots_[kMaxPins]{};
-  u32 handles_[kMaxPins]{};
-  u32 handleCount_{0};
-  u8 connected_{0};
+  Vectorized<Consumer<T>>                            pinConsumers_[kMaxPins]{};
+  PinSlot                                            slots_[kMaxPins]{};
+  u32                                                handles_[kMaxPins]{};
+  u32                                                handleCount_{0};
+  u8                                                 connected_{0};
   MemberCallback<GpioIn<I>, &GpioIn<I>::handleClose> closeCb_{this};
 };
 
