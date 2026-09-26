@@ -126,7 +126,7 @@ struct DualScopeOutput {
  */
 template <typename I, typename O>
 class DualScope final : public Block<I, O> {
-  using T = typename O::Value;
+  using T = O::Value;
   using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f32::sinks::ScopeF32Output, push::f64::sinks::ScopeF64Output>;
 
  public:

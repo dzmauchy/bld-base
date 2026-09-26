@@ -22,7 +22,7 @@ class Scope : public NativeBlock<I, O> {
    * @brief The numeric type carried by this block.
    * @image type.svg
    */
-  using T = typename O::Value;
+  using T = O::Value;
 
   explicit Scope(u32 blockId, u32 period = 60, u32 precision = 10) : NativeBlock<I, O>(blockId), period_(period), precision_(precision) {}
 

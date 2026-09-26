@@ -25,7 +25,7 @@ class Aggregate : public NativeBlock<I, O> {
    * @brief The numeric type carried by this block.
    * @image type.svg
    */
-  using T = typename I::Value;
+  using T = I::Value;
 
   ~Aggregate() override = default;
 

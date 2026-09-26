@@ -23,7 +23,7 @@ class PulseGen : public PeriodicSource<I, O> {
    * @brief The numeric type carried by this block.
    * @image type.svg
    */
-  using T = typename I::Value;
+  using T = I::Value;
 
   ~PulseGen() override = default;
 

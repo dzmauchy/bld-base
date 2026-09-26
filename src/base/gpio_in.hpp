@@ -23,7 +23,7 @@ class GpioIn : public NativeBlock<I, O> {
    * @brief The numeric type carried by this block.
    * @image type.svg
    */
-  using T = typename I::Value;
+  using T = I::Value;
 
   explicit GpioIn(u32 blockId, u16 port, Array<u8> pins) : NativeBlock<I, O>(blockId), port_(port), pins_(move(pins)) {}
 

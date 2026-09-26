@@ -51,7 +51,7 @@ struct RemoveReference<T&&> {
  * @image type.svg
  */
 template <typename T>
-using remove_reference_t = typename RemoveReference<T>::type;
+using remove_reference_t = RemoveReference<T>::type;
 
 template <typename T>
 constexpr auto move(T& value) noexcept -> remove_reference_t<T>&& {

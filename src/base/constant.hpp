@@ -23,7 +23,7 @@ class Constant : public NativeBlock<I, O> {
    * @brief The numeric type carried by this block.
    * @image type.svg
    */
-  using T = typename I::Value;
+  using T = I::Value;
 
   static_assert(std::is_void_v<O>, "Push sources have no returned ports");
 
