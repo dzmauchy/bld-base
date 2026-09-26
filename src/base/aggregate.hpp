@@ -12,11 +12,6 @@
  */
 namespace push {
 
-/**
- * Aggregate
- * @brief Combines the latest finite values on a timer.
- * @image aggregate.svg
- */
 template <typename I, typename O>
 class Aggregate : public NativeBlock<I, O> {
  public:
