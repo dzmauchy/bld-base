@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Node >= 24. Usage: node .github/scripts/generate-meta.mjs [clang-wasm asset directory]
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -164,7 +164,10 @@ function extractMetadata(ast, sources) {
       if (!node.name) return;
       if (local) {
         const key = qualified(scope, node.name);
-        if (fullComment(node) || !namespaces.has(key)) namespaces.set(key, metadata(node, scope));
+        if (fullComment(node) || !namespaces.has(key)) {
+          const { name, description, icon } = metadata(node, scope);
+          namespaces.set(key, { id: key, name, description, icon });
+        }
       }
       for (const child of children(node)) visit(child, [...scope, node.name]);
     } else if (node.kind === 'ClassTemplateDecl' || node.kind === 'TypeAliasTemplateDecl') {
@@ -222,17 +225,17 @@ function extractMetadata(ast, sources) {
     const parameters = children(declaration.template ?? {}).filter(child => child.kind === 'TemplateTypeParmDecl');
     const input = parameters.find(parameter => parameter.name === 'I')?.defaultArg?.type;
     const output = parameters.find(parameter => parameter.name === 'O')?.defaultArg?.type;
-    // Generic implementation templates have no chosen ports; list them as types.
     // The library's usable block templates provide defaults for both I and O.
     if (input && output && isBlock(declaration)) {
       blocks.push({ ...declaration.meta,
         inputs: ports(input, declaration.scope), outputs: ports(output, declaration.scope) });
-    } else {
+    } else if (declaration.node.loc.file === '/project/src/core/types.hpp') {
       types.push(declaration.meta);
     }
   }
   const sorted = values => [...values].sort((a, b) => {
-    const left = `${a.namespace}::${a.id}`, right = `${b.namespace}::${b.id}`;
+    const left = a.namespace === undefined ? a.id : `${a.namespace}::${a.id}`;
+    const right = b.namespace === undefined ? b.id : `${b.namespace}::${b.id}`;
     return left < right ? -1 : left > right ? 1 : 0;
   });
   return { namespaces: sorted(namespaces.values()), types: sorted(types), blocks: sorted(blocks) };
@@ -250,8 +253,9 @@ if (isMainThread) {
       worker.on('error', reject);
       worker.on('exit', code => code === 0 && meta ? resolve(meta) : reject(new Error(`clang worker exited with code ${code}`)));
     });
-    await writeFile(path.join(root, 'meta.json'), `${JSON.stringify(result, null, 2)}\n`);
-    console.log(`Wrote meta.json: ${result.types.length} types, ${result.blocks.length} blocks, ${result.namespaces.length} namespaces`);
+    await mkdir(path.join(root, '.cache'), { recursive: true });
+    await writeFile(path.join(root, '.cache/meta.json'), `${JSON.stringify(result, null, 2)}\n`);
+    console.log(`Wrote .cache/meta.json: ${result.types.length} types, ${result.blocks.length} blocks, ${result.namespaces.length} namespaces`);
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

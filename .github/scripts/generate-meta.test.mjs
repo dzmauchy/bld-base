@@ -14,18 +14,25 @@ const run = filename => spawnSync(process.execPath, [filename, assets], { cwd: o
 test('generates all library ports, documentation, and only the requested metadata', async () => {
   const result = run(script);
   assert.equal(result.status, 0, result.stderr);
-  const generated = await readFile(path.join(root, 'meta.json'), 'utf8');
+  const generated = await readFile(path.join(root, '.cache/meta.json'), 'utf8');
   const meta = JSON.parse(generated);
   assert.equal(meta.blocks.length, 22);
   assert.equal(meta.namespaces.length, 10);
+  assert.deepEqual(meta.types.map(entry => entry.id).sort(),
+    ['Bool', 'Consumer', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64'].sort());
+  assert.deepEqual(meta.namespaces.map(entry => entry.id), [
+    'math', 'push', 'push::f32', 'push::f32::sinks', 'push::f32::sources', 'push::f32::transformers',
+    'push::f64', 'push::f64::sinks', 'push::f64::sources', 'push::f64::transformers',
+  ]);
   const entryKeys = ['description', 'icon', 'id', 'name', 'namespace'];
   for (const category of ['types', 'namespaces', 'blocks']) {
-    const ids = meta[category].map(entry => `${entry.namespace}::${entry.id}`);
+    const keys = category === 'namespaces' ? entryKeys.filter(key => key !== 'namespace') : entryKeys;
+    const ids = meta[category].map(entry => category === 'namespaces' ? entry.id : `${entry.namespace}::${entry.id}`);
     assert.equal(new Set(ids).size, ids.length);
     for (const entry of meta[category]) {
       assert.deepEqual(Object.keys(entry).sort(), category === 'blocks'
-        ? [...entryKeys, 'inputs', 'outputs'].sort() : entryKeys);
-      for (const key of entryKeys) assert.equal(typeof entry[key], 'string');
+        ? [...keys, 'inputs', 'outputs'].sort() : keys);
+      for (const key of keys) assert.equal(typeof entry[key], 'string');
       for (const port of [...(entry.inputs ?? []), ...(entry.outputs ?? [])]) {
         assert.deepEqual(Object.keys(port).sort(), entryKeys);
         assert.ok(port.name && port.description && port.icon);
@@ -57,14 +64,14 @@ test('generates all library ports, documentation, and only the requested metadat
   assert.equal(cosine.description, 'Computes the cosine of the input value');
   assert.equal(cosine.outputs[0].name, 'Cosine input consumer');
   assert.equal(run(script).status, 0);
-  assert.equal(await readFile(path.join(root, 'meta.json'), 'utf8'), generated);
+  assert.equal(await readFile(path.join(root, '.cache/meta.json'), 'utf8'), generated);
 });
 
 test('reads unincluded headers, UTF-8 comments, and multiple fields; preserves output on compiler failure', async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'bld-meta-'));
   try {
     await mkdir(path.join(temporary, '.github/scripts'), { recursive: true });
-    await mkdir(path.join(temporary, 'src'));
+    await mkdir(path.join(temporary, 'src/core'), { recursive: true });
     const fixtureScript = path.join(temporary, '.github/scripts/generate-meta.mjs');
     await copyFile(script, fixtureScript);
     await writeFile(path.join(temporary, 'src/base.hpp'), `
@@ -90,12 +97,14 @@ class Example : public Block<I, O> {};
 }
 `);
     await writeFile(path.join(temporary, 'src/extra.hpp'), '/** Additional type */\nusing Extra = double;\n');
+    await writeFile(path.join(temporary, 'src/core/types.hpp'), '/** Exported type */\nusing Scalar = double;\n');
     const result = run(fixtureScript);
     assert.equal(result.status, 0, result.stderr);
-    const output = path.join(temporary, 'meta.json');
+    const output = path.join(temporary, '.cache/meta.json');
+    await assert.rejects(readFile(path.join(temporary, 'meta.json')), { code: 'ENOENT' });
     const generated = await readFile(output, 'utf8');
     const meta = JSON.parse(generated);
-    assert.ok(meta.types.some(entry => entry.id === 'Extra'));
+    assert.deepEqual(meta.types.map(entry => entry.id), ['Scalar']);
     assert.equal(meta.blocks.length, 1);
     assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['first', 'second']);
     assert.deepEqual(meta.blocks[0].outputs.map(port => port.id), ['result', 'extra']);

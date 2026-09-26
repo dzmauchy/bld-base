@@ -111,24 +111,27 @@ node .github/scripts/generate-meta.mjs /path/to/clang-assets
 
 The script installs the archive directly into clang's in-memory filesystem and
 parses every `src/**/*.hpp` using the JSON AST and documentation comments.
-It writes `meta.json` in the project root, regardless of the working directory.
+It writes `.cache/meta.json`, creating `.cache/` in the project root if needed,
+regardless of the working directory.
 No npm dependencies or native compiler are needed. The release's browser-only
 JS glue runs in an isolated Node worker. Its `unsupported syscall: __syscall_prlimit64`
 warning is harmless for AST generation.
 
-The output has `namespaces`, `types`, and `blocks` arrays. Entries contain only
-`id`, `namespace`, `name`, `description`, and `icon`; blocks also have `inputs`
-and `outputs` arrays with the same entry format. Names come from the first
+The output has `namespaces`, `types`, and `blocks` arrays. Namespace entries use
+fully qualified IDs such as `push::f32::sinks` and contain `id`, `name`,
+`description`, and `icon`. Type, block, and port entries also contain `namespace`;
+blocks have `inputs` and `outputs` arrays. Names come from the first
 documentation paragraph, descriptions from `@brief`/`@details`, and icons from
 `@image`. Missing documentation falls back to the declaration name and empty
 description/icon strings. `namespace` is the enclosing C++ scope (`""` for global
 scope); for nested types it includes the enclosing classes. Port scopes are
 those of their declaring structs. IDs are unqualified declaration names; port
-IDs are field names. C++ type expressions and compiler-generated IDs are omitted.
+IDs are field names. The `types` array includes only declarations from
+`src/core/types.hpp`. C++ type expressions and compiler-generated IDs are omitted.
 
 Blocks are descendants of `Block` with default `I` and `O` template arguments.
 Their ports come from those default structs; `void` produces an empty output
-array. Generic implementation templates without defaults appear under `types`.
+array. Generic implementation templates without defaults are omitted from `blocks`.
 Repeated namespace declarations and implicit template instances are deduplicated.
 
 Run the metadata checks with the same assets available:
