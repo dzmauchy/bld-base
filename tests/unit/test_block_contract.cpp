@@ -145,7 +145,7 @@ TEST_CASE("Block dispatches structs with multiple ports") {
   Arithmetic arithmetic(42);
   Block<Inputs, Outputs>& block = arithmetic;
   const auto output = block.apply({.left = 7, .right = 3});
-  CHECK_EQ(block.id(), 42);
+  CHECK_EQ(block.blockId, 42);
   CHECK_EQ(output.sum, 10);
   CHECK_EQ(output.difference, 4);
 }
@@ -161,7 +161,7 @@ TEST_CASE_TEMPLATE("Push wiring works through typed block references", T, f32, f
   MockRuntime::reset();
   using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f32::sinks::ScopeF32Output, push::f64::sinks::ScopeF64Output>;
   push::Scope<push::ScopeInput, ScopeOutput> scope(0);
-  push::Constant<push::DownstreamInput<T>, void> constant(1, T{3});
+  push::Constant<push::DownstreamInput<T>> constant(1, T{3});
   Block<push::ScopeInput, ScopeOutput>& sink = scope;
   Block<push::DownstreamInput<T>, void>& source = constant;
   auto output = sink.apply({.channelCount = 2});

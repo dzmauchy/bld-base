@@ -15,21 +15,14 @@ namespace push {
  * @brief Pushes GPIO levels to the streams for each configured pin.
  * @image push.gpio_in.svg
  */
-template <typename I, typename O>
-class GpioIn : public NativeBlock<I, O> {
+template <typename I>
+class GpioIn : public NativeBlock<I, void> {
  public:
-  /**
-   * Value
-   * @brief The numeric type carried by this block.
-   * @image type.svg
-   */
   using T = I::Value;
 
-  explicit GpioIn(u32 blockId, u16 port, Array<u8> pins) : NativeBlock<I, O>(blockId), port_(port), pins_(move(pins)) {}
+  explicit GpioIn(u32 blockId, u16 port, Array<u8> pins) : NativeBlock<I, void>(blockId), port_(port), pins_(move(pins)) {}
 
-  static_assert(std::is_void_v<O>, "GPIO sources have no returned ports");
-
-  O apply(I input) override {
+  void apply(I input) override {
     connected_ = static_cast<u8>(input.pins.size() < kMaxPins ? input.pins.size() : kMaxPins);
     for (u8 i = 0; i < connected_; ++i) {
       pinConsumers_[i] = move(input.pins[i]);
@@ -44,8 +37,8 @@ class GpioIn : public NativeBlock<I, O> {
     this->onClose(closeCb_);
   }
 
-  [[nodiscard]] auto port() const { return port_; }
-  [[nodiscard]] auto pins() const -> const Array<u8>& { return pins_; }
+  const u16 port_;
+  const Array<u8> pins_;
 
   static constexpr u8 kMaxPins = 8;
 
@@ -93,18 +86,16 @@ class GpioIn : public NativeBlock<I, O> {
     }
   }
 
-  u16 port_;
-  Array<u8> pins_;
   Vectorized<Consumer<T>> pinConsumers_[kMaxPins]{};
   PinSlot slots_[kMaxPins]{};
   u32 handles_[kMaxPins]{};
   u32 handleCount_{0};
   u8 connected_{0};
-  MemberCallback<GpioIn<I, O>, &GpioIn<I, O>::handleClose> closeCb_{this};
+  MemberCallback<GpioIn<I>, &GpioIn<I>::handleClose> closeCb_{this};
 };
 
-template <typename I, typename O>
-void GpioIn<I, O>::PinSlot::Cbk::operator()() {
+template <typename I>
+void GpioIn<I>::PinSlot::Cbk::operator()() {
   slot->parent->emitPin(slot->pinNumber);
 }
 

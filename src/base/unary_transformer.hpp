@@ -18,11 +18,6 @@ namespace push {
 template <typename I, typename O>
 class UnaryTransformer : public NativeBlock<I, O> {
  public:
-  /**
-   * Value
-   * @brief The numeric type carried by this block.
-   * @image type.svg
-   */
   using T = I::Value;
 
   ~UnaryTransformer() override = default;

@@ -30,8 +30,5 @@ class Block {
 
   virtual O apply(I input) = 0;
 
-  [[nodiscard]] auto id() const { return blockId; }
-
- protected:
-  u32 blockId;
+  const u32 blockId;
 };

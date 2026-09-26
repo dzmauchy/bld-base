@@ -15,28 +15,19 @@ namespace push {
  * @brief Generates random values scaled by an amplitude.
  * @image push.rand-gen.svg
  */
-template <typename I, typename O>
-class RandGen : public PeriodicSource<I, O> {
+template <typename I>
+class RandGen : public PeriodicSource<I> {
  public:
-  /**
-   * Value
-   * @brief The numeric type carried by this block.
-   * @image type.svg
-   */
   using T = I::Value;
 
   ~RandGen() override = default;
 
-  [[nodiscard]] auto precision() const { return this->intervalMs(); }
-  [[nodiscard]] auto amplitude() const { return amplitude_; }
+  const T amplitude_;
 
  protected:
-  RandGen(u32 blockId, u32 precision, T amplitude) : PeriodicSource<I, O>(blockId, precision), amplitude_(amplitude) {}
+  RandGen(u32 blockId, u32 precision, T amplitude) : PeriodicSource<I>(blockId, precision), amplitude_(amplitude) {}
 
   [[nodiscard]] T sample() override { return random_of<T>() * amplitude_; }
-
- private:
-  T amplitude_;
 };
 
 }  // namespace push

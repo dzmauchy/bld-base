@@ -20,11 +20,6 @@ namespace push {
 template <typename I, typename O>
 class Aggregate : public NativeBlock<I, O> {
  public:
-  /**
-   * Value
-   * @brief The numeric type carried by this block.
-   * @image type.svg
-   */
   using T = I::Value;
 
   ~Aggregate() override = default;
@@ -34,7 +29,7 @@ class Aggregate : public NativeBlock<I, O> {
     return O{.channels = bindInputs(input.channelCount)};
   }
 
-  [[nodiscard]] auto precision() const { return precision_; }
+  const u32 precision_;
 
  protected:
   explicit Aggregate(u32 blockId, u32 precision = 10) : NativeBlock<I, O>(blockId), precision_(precision) {}
@@ -76,7 +71,6 @@ class Aggregate : public NativeBlock<I, O> {
     }
   }
 
-  u32 precision_;
   Vectorized<Consumer<T>> downstream_{};
   Array<T> values_{};
   Array<IndexedMemberConsumer<Aggregate<I, O>, T, &Aggregate<I, O>::handleChannel>> inputs_{};

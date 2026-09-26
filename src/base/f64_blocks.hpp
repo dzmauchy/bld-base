@@ -121,10 +121,10 @@ namespace sources {
  * @brief Reads the input value from a GPIO pin
  * @image push.gpio_in.svg
  */
-template <typename I = GpioInput<F64>, typename O = void>
-class GpioInF64 : public GpioIn<I, O> {
+template <typename I = GpioInput<F64>>
+class GpioInF64 : public GpioIn<I> {
  public:
-  explicit GpioInF64(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<I, O>(blockId, port, move(pins)) {}
+  explicit GpioInF64(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<I>(blockId, port, move(pins)) {}
 };
 
 /**
@@ -132,10 +132,10 @@ class GpioInF64 : public GpioIn<I, O> {
  * @brief Constant value
  * @image push.const.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = void>
-class ConstF64 : public Constant<I, O> {
+template <typename I = DownstreamInput<F64>>
+class ConstF64 : public Constant<I> {
  public:
-  explicit ConstF64(u32 blockId, F64 v = 1) : Constant<I, O>(blockId, v) {}
+  explicit ConstF64(u32 blockId, F64 v = 1) : Constant<I>(blockId, v) {}
 };
 
 /**
@@ -143,11 +143,11 @@ class ConstF64 : public Constant<I, O> {
  * @brief Cosine generator
  * @image push.cos-gen.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = void>
-class CosGenF64 : public WaveGen<I, O> {
+template <typename I = DownstreamInput<F64>>
+class CosGenF64 : public WaveGen<I> {
  public:
   explicit CosGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
-      : WaveGen<I, O>(blockId, precision, frequency, amplitude, phase) {}
+      : WaveGen<I>(blockId, precision, frequency, amplitude, phase) {}
 
  protected:
   [[nodiscard]] F64 wave(F64 angle) const override { return math::cos(angle); }
@@ -158,11 +158,11 @@ class CosGenF64 : public WaveGen<I, O> {
  * @brief Sine generator
  * @image push.sin-gen.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = void>
-class SinGenF64 : public WaveGen<I, O> {
+template <typename I = DownstreamInput<F64>>
+class SinGenF64 : public WaveGen<I> {
  public:
   explicit SinGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
-      : WaveGen<I, O>(blockId, precision, frequency, amplitude, phase) {}
+      : WaveGen<I>(blockId, precision, frequency, amplitude, phase) {}
 
  protected:
   [[nodiscard]] F64 wave(F64 angle) const override { return math::sin(angle); }
@@ -173,10 +173,10 @@ class SinGenF64 : public WaveGen<I, O> {
  * @brief Random generator
  * @image push.rand-gen.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = void>
-class RandGenF64 : public RandGen<I, O> {
+template <typename I = DownstreamInput<F64>>
+class RandGenF64 : public RandGen<I> {
  public:
-  explicit RandGenF64(u32 blockId, u32 precision = 10, F64 amplitude = 1) : RandGen<I, O>(blockId, precision, amplitude) {}
+  explicit RandGenF64(u32 blockId, u32 precision = 10, F64 amplitude = 1) : RandGen<I>(blockId, precision, amplitude) {}
 };
 
 /**
@@ -184,11 +184,11 @@ class RandGenF64 : public RandGen<I, O> {
  * @brief Pulse signal generator
  * @image push.pulse-gen.svg
  */
-template <typename I = DownstreamInput<F64>, typename O = void>
-class PulseGenF64 : public PulseGen<I, O> {
+template <typename I = DownstreamInput<F64>>
+class PulseGenF64 : public PulseGen<I> {
  public:
   explicit PulseGenF64(u32 blockId, F64 dutyCycle = 0.5, F64 amplitude = 1, F64 frequency = 1, F64 phase = 0)
-      : PulseGen<I, O>(blockId, dutyCycle, amplitude, frequency, phase) {}
+      : PulseGen<I>(blockId, dutyCycle, amplitude, frequency, phase) {}
 };
 
 }  // namespace sources

@@ -17,19 +17,14 @@ namespace push {
 template <typename I, typename O>
 class Scope : public NativeBlock<I, O> {
  public:
-  /**
-   * Value
-   * @brief The numeric type carried by this block.
-   * @image type.svg
-   */
   using T = O::Value;
 
   explicit Scope(u32 blockId, u32 period = 60, u32 precision = 10) : NativeBlock<I, O>(blockId), period_(period), precision_(precision) {}
 
   [[nodiscard]] O apply(I input) override { return O{.channels = makeChannels(input.channelCount)}; }
 
-  [[nodiscard]] auto period() const { return period_; }
-  [[nodiscard]] auto precision() const { return precision_; }
+  const u32 period_;
+  const u32 precision_;
 
  protected:
   using NativeBlock<I, O>::NativeBlock;
@@ -46,8 +41,6 @@ class Scope : public NativeBlock<I, O> {
     return this->template pointersOf<T>(channels_);
   }
 
-  u32 period_;
-  u32 precision_;
   Array<IndexedMemberConsumer<Scope<I, O>, T, &Scope<I, O>::handlePush>> channels_{};
 };
 

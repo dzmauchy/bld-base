@@ -58,9 +58,9 @@ TEST_SUITE("ScopeF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "KeepsConfiguredPeriodAndPrecision") {
     const auto scope = ScopeF32(3, 120, 25);
-    CHECK_EQ(scope.id(), 3);
-    CHECK_EQ(scope.period(), 120);
-    CHECK_EQ(scope.precision(), 25);
+    CHECK_EQ(scope.blockId, 3);
+    CHECK_EQ(scope.period_, 120);
+    CHECK_EQ(scope.precision_, 25);
   }
 }
 
@@ -88,7 +88,7 @@ TEST_SUITE("ConstF32") {
     CHECK_EQ(MockRuntime::lastF32(0, 1), 8.f);
   }
 
-  TEST_CASE_FIXTURE(BlocksFixture, "DefaultValueIsOne") { CHECK_EQ(ConstF32(0).value(), 1.f); }
+  TEST_CASE_FIXTURE(BlocksFixture, "DefaultValueIsOne") { CHECK_EQ(ConstF32(0).value_, 1.f); }
 
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotRegisterAnInterval") {
     auto constant = ConstF32(1, 9.f);
@@ -158,7 +158,7 @@ TEST_SUITE("ProductF32") {
     MockRuntime::tick();
 
     CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
-    CHECK_EQ(product.precision(), 10);
+    CHECK_EQ(product.precision_, 10);
   }
 
   TEST_CASE_FIXTURE(BlocksFixture, "SingleFactorIsTheProduct") {
@@ -281,7 +281,7 @@ TEST_SUITE("WaveGenerators") {
     MockRuntime::start();
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
-    CHECK_EQ(gen.precision(), 25);
+    CHECK_EQ(gen.intervalMs_, 25);
   }
 
   TEST_CASE_FIXTURE(BlocksFixture, "OnCloseClearsGeneratorInterval") {

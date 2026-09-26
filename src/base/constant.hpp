@@ -15,33 +15,25 @@ namespace push {
  * @brief Pushes a configured value when the runtime starts.
  * @image push.const.svg
  */
-template <typename I, typename O>
-class Constant : public NativeBlock<I, O> {
+template <typename I>
+class Constant : public NativeBlock<I, void> {
  public:
-  /**
-   * Value
-   * @brief The numeric type carried by this block.
-   * @image type.svg
-   */
   using T = I::Value;
 
-  static_assert(std::is_void_v<O>, "Push sources have no returned ports");
+  explicit Constant(u32 blockId, T value) : NativeBlock<I, void>(blockId), value_(value) {}
 
-  explicit Constant(u32 blockId, T value) : NativeBlock<I, O>(blockId), value_(value) {}
-
-  O apply(I input) override {
+  void apply(I input) override {
     downstream_ = move(input.downstream);
     this->onStart(startCb_);
   }
 
-  [[nodiscard]] auto value() const { return value_; }
+  const T value_;
 
  private:
   void handleStart() { this->pushTo(downstream_, value_); }
 
-  T value_;
   Vectorized<Consumer<T>> downstream_{};
-  MemberCallback<Constant<I, O>, &Constant<I, O>::handleStart> startCb_{this};
+  MemberCallback<Constant<I>, &Constant<I>::handleStart> startCb_{this};
 };
 
 }  // namespace push
