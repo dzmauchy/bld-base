@@ -99,6 +99,44 @@ Sources live under `src/`. Install and the release archive use the contents of t
 
 The versioned release archive contains `base.hpp`, `base/`, and `core/`, including `core/math/`.
 
+## Metadata
+
+Requires Node.js 24 or newer and `clang.js`, `clang.wasm`, and `sysroot.tgz`
+from [clang-wasm clang-23.1.2](https://github.com/dzmauchy/clang-wasm/releases/tag/clang-23.1.2).
+Put the three assets in `.cache/clang-23.1.2/`, or pass their directory:
+
+```sh
+node .github/scripts/generate-meta.mjs /path/to/clang-assets
+```
+
+The script installs the archive directly into clang's in-memory filesystem and
+parses every `src/**/*.hpp` using the JSON AST and documentation comments.
+It writes `meta.json` in the project root, regardless of the working directory.
+No npm dependencies or native compiler are needed. The release's browser-only
+JS glue runs in an isolated Node worker. Its `unsupported syscall: __syscall_prlimit64`
+warning is harmless for AST generation.
+
+The output has `namespaces`, `types`, and `blocks` arrays. Entries contain only
+`id`, `namespace`, `name`, `description`, and `icon`; blocks also have `inputs`
+and `outputs` arrays with the same entry format. Names come from the first
+documentation paragraph, descriptions from `@brief`/`@details`, and icons from
+`@image`. Missing documentation falls back to the declaration name and empty
+description/icon strings. `namespace` is the enclosing C++ scope (`""` for global
+scope); for nested types it includes the enclosing classes. Port scopes are
+those of their declaring structs. IDs are unqualified declaration names; port
+IDs are field names. C++ type expressions and compiler-generated IDs are omitted.
+
+Blocks are descendants of `Block` with default `I` and `O` template arguments.
+Their ports come from those default structs; `void` produces an empty output
+array. Generic implementation templates without defaults appear under `types`.
+Repeated namespace declarations and implicit template instances are deduplicated.
+
+Run the metadata checks with the same assets available:
+
+```sh
+node --test .github/scripts/generate-meta.test.mjs
+```
+
 ## Host bindings
 
 The host supplies the `extern "C"` functions declared in `core/hal.hpp` directly.
