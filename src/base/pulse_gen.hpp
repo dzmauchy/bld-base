@@ -10,9 +10,8 @@ namespace push {
  * @brief Generates a pulse signal with a configured duty cycle.
  * @image push.pulse-gen.svg
  */
-template <typename I>
-class PulseGen : public PeriodicSource<I> {
- public:
+template <typename I> class PulseGen : public PeriodicSource<I> {
+public:
   using T = I::Value;
 
   explicit PulseGen(const u32 blockId,
@@ -34,7 +33,7 @@ class PulseGen : public PeriodicSource<I> {
   const T frequency_;
   const T phase_;
 
- protected:
+protected:
   void onStarted() override { t0_ = get_time(); }
 
   T sample() override {
@@ -44,8 +43,8 @@ class PulseGen : public PeriodicSource<I> {
     return progress < dutyCycle_ ? amplitude_ : T{0};
   }
 
- private:
+private:
   u64 t0_{0};
 };
 
-}  // namespace push
+} // namespace push

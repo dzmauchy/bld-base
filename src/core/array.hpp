@@ -10,26 +10,25 @@
  * @brief An array of values
  * @image type.svg
  */
-template <typename T>
-class Array {
- public:
+template <typename T> class Array {
+public:
   Array() = default;
 
   Array(const std::initializer_list<T> values) {
     reserve(static_cast<u32>(values.size()));
-    for (const auto& value : values) {
+    for (const auto &value : values) {
       push_back(value);
     }
   }
 
-  Array(const Array& other) {
+  Array(const Array &other) {
     reserve(other.size_);
     for (u32 i = 0; i < other.size_; ++i) {
       push_back(other.data_[i]);
     }
   }
 
-  Array(Array&& other) noexcept
+  Array(Array &&other) noexcept
       : data_(other.data_),
         size_(other.size_),
         cap_(other.cap_) {
@@ -38,7 +37,7 @@ class Array {
     other.cap_ = 0;
   }
 
-  Array& operator=(const Array& other) {
+  Array &operator=(const Array &other) {
     if (this == &other) {
       return *this;
     }
@@ -50,7 +49,7 @@ class Array {
     return *this;
   }
 
-  Array& operator=(Array&& other) noexcept {
+  Array &operator=(Array &&other) noexcept {
     if (this == &other) {
       return *this;
     }
@@ -70,7 +69,7 @@ class Array {
     if (n <= cap_) {
       return;
     }
-    auto* next = static_cast<T*>(::operator new(sizeof(T) * n));
+    auto *next = static_cast<T *>(::operator new(sizeof(T) * n));
     for (u32 i = 0; i < size_; ++i) {
       new (next + i) T(move(data_[i]));
       data_[i].~T();
@@ -82,28 +81,27 @@ class Array {
     cap_ = n;
   }
 
-  void push_back(const T& value) {
+  void push_back(const T &value) {
     grow();
     new (data_ + size_) T(value);
     ++size_;
   }
 
-  void push_back(T&& value) {
+  void push_back(T &&value) {
     grow();
     new (data_ + size_) T(move(value));
     ++size_;
   }
 
-  template <typename... Args>
-  T& emplace_back(Args&&... args) {
+  template <typename... Args> T &emplace_back(Args &&...args) {
     grow();
-    new (data_ + size_) T(static_cast<Args&&>(args)...);
+    new (data_ + size_) T(static_cast<Args &&>(args)...);
     ++size_;
     return data_[size_ - 1];
   }
 
   void assign(const u32 n,
-              const T&  value) {
+              const T  &value) {
     reset();
     reserve(n);
     for (u32 i = 0; i < n; ++i) {
@@ -118,8 +116,8 @@ class Array {
     size_ = 0;
   }
 
-  T&       operator[](const u32 i) { return data_[i]; }
-  const T& operator[](const u32 i) const { return data_[i]; }
+  T       &operator[](const u32 i) { return data_[i]; }
+  const T &operator[](const u32 i) const { return data_[i]; }
   [[nodiscard]]
   u32 size() const {
     return size_;
@@ -128,18 +126,18 @@ class Array {
   bool empty() const {
     return size_ == 0;
   }
-  T* begin() { return data_; }
-  T* end() { return data_ + size_; }
+  T *begin() { return data_; }
+  T *end() { return data_ + size_; }
   [[nodiscard]]
-  const T* begin() const {
+  const T *begin() const {
     return data_;
   }
   [[nodiscard]]
-  const T* end() const {
+  const T *end() const {
     return data_ + size_;
   }
 
- private:
+private:
   void grow() {
     if (size_ == cap_) {
       reserve(cap_ == 0 ? 4u : cap_ * 2u);
@@ -155,16 +153,15 @@ class Array {
     }
   }
 
-  T*  data_ = nullptr;
+  T  *data_ = nullptr;
   u32 size_ = 0;
   u32 cap_ = 0;
 };
 
-template <typename T>
-using Vectorized = Array<T*>;
+template <typename T> using Vectorized = Array<T *>;
 
 template <typename T>
-Array<T> arrayFrom(const T* const items,
+Array<T> arrayFrom(const T *const items,
                    const u32      count) {
   auto result = Array<T>{};
   for (u32 i = 0; i < count; ++i) {

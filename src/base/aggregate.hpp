@@ -7,10 +7,15 @@
 
 namespace push {
 
-template <typename I, typename O>
-class Aggregate : public NativeBlock<I, O> {
- public:
+template <typename I, typename O> class Aggregate : public NativeBlock<I, O> {
+public:
   using T = I::Value;
+
+  explicit Aggregate(const u32 blockId,
+                     const u32 precision = 10)
+      : NativeBlock<I,
+                    O>(blockId),
+        precision_(precision) {}
 
   ~Aggregate() override = default;
 
@@ -21,17 +26,12 @@ class Aggregate : public NativeBlock<I, O> {
 
   const u32 precision_;
 
- protected:
-  explicit Aggregate(const u32 blockId,
-                     const u32 precision = 10)
-      : NativeBlock<I,
-                    O>(blockId),
-        precision_(precision) {}
+protected:
   [[nodiscard]]
   virtual T combine(T acc,
                     T value) const = 0;
 
- private:
+private:
   void handleChannel(const u8 index,
                      const T  value) {
     values_[index] = value;
@@ -78,4 +78,4 @@ class Aggregate : public NativeBlock<I, O> {
   Maybe<typename NativeBlock<I, O>::ClearIntervalCallback>              closeCb_{};
 };
 
-}  // namespace push
+} // namespace push

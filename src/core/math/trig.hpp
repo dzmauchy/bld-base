@@ -5,17 +5,13 @@
 
 namespace math {
 
-template <typename T>
-inline constexpr T kTwoPi = T{0};
+template <typename T> inline constexpr T kTwoPi = T{0};
 
-template <>
-inline constexpr f32 kTwoPi<f32> = 2.f * 3.1415926f;
+template <> inline constexpr f32 kTwoPi<f32> = 2.f * 3.1415926f;
 
-template <>
-inline constexpr f64 kTwoPi<f64> = 2.0 * 3.14159265358979323846;
+template <> inline constexpr f64 kTwoPi<f64> = 2.0 * 3.14159265358979323846;
 
-template <typename T>
-constexpr T wrapTwoPi(T angle) {
+template <typename T> constexpr T wrapTwoPi(T angle) {
   const T full = kTwoPi<T>;
   while (angle >= full) {
     angle -= full;
@@ -59,4 +55,4 @@ inline f64 ceil(const f64 value) { return ::ceil_f64(value); }
 inline f32 floor(const f32 value) { return ::floor_f32(value); }
 inline f64 floor(const f64 value) { return ::floor_f64(value); }
 
-}  // namespace math
+} // namespace math

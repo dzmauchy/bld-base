@@ -9,9 +9,8 @@ namespace push {
  * @brief Reports values received by independent scope channels.
  * @image scope.svg
  */
-template <typename I, typename O>
-class Scope : public NativeBlock<I, O> {
- public:
+template <typename I, typename O> class Scope : public NativeBlock<I, O> {
+public:
   using T = O::Value;
 
   explicit Scope(const u32 blockId,
@@ -27,10 +26,10 @@ class Scope : public NativeBlock<I, O> {
   const u32 period_;
   const u32 precision_;
 
- protected:
+protected:
   using NativeBlock<I, O>::NativeBlock;
 
- private:
+private:
   void handlePush(const u8 channel,
                   const T  value) {
     this->sendValue(channel, value);
@@ -48,4 +47,4 @@ class Scope : public NativeBlock<I, O> {
   Array<IndexedMemberConsumer<Scope, T, &Scope::handlePush>> channels_{};
 };
 
-}  // namespace push
+} // namespace push

@@ -6,7 +6,7 @@
 template <typename I, typename O>
   requires(std::is_class_v<I> && (std::is_class_v<O> || std::is_void_v<O>))
 class Block {
- public:
+public:
   using Input = I;
 
   using Output = O;

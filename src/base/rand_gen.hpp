@@ -10,9 +10,8 @@ namespace push {
  * @brief Generates random values scaled by an amplitude.
  * @image push.rand-gen.svg
  */
-template <typename I>
-class RandGen : public PeriodicSource<I> {
- public:
+template <typename I> class RandGen : public PeriodicSource<I> {
+public:
   using T = I::Value;
 
   explicit RandGen(const u32 blockId,
@@ -26,8 +25,8 @@ class RandGen : public PeriodicSource<I> {
 
   const T amplitude_;
 
- protected:
+protected:
   T sample() override { return random_of<T>() * amplitude_; }
 };
 
-}  // namespace push
+} // namespace push

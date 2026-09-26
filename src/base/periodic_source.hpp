@@ -11,9 +11,8 @@ namespace push {
  * @brief Emits sampled values at a configured interval.
  * @image source.svg
  */
-template <typename I>
-class PeriodicSource : public NativeBlock<I, void> {
- public:
+template <typename I> class PeriodicSource : public NativeBlock<I, void> {
+public:
   using T = I::Value;
 
   ~PeriodicSource() override = default;
@@ -25,7 +24,7 @@ class PeriodicSource : public NativeBlock<I, void> {
 
   const u32 intervalMs_;
 
- protected:
+protected:
   PeriodicSource(const u32 blockId,
                  const u32 intervalMs)
       : NativeBlock<I,
@@ -37,7 +36,7 @@ class PeriodicSource : public NativeBlock<I, void> {
 
   Vectorized<Consumer<T>> downstream_{};
 
- private:
+private:
   void handleTick() { this->pushTo(downstream_, sample()); }
   void handleStart() {
     onStarted();
@@ -49,4 +48,4 @@ class PeriodicSource : public NativeBlock<I, void> {
   Maybe<typename NativeBlock<I, void>::ClearIntervalCallback>  closeCb_{};
 };
 
-}  // namespace push
+} // namespace push

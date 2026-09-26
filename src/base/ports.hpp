@@ -10,8 +10,7 @@ namespace push {
  * @brief Consumer streams supplied to a push block.
  * @image input.svg
  */
-template <typename T>
-struct DownstreamInput {
+template <typename T> struct DownstreamInput {
   using Value = T;
 
   /**
@@ -27,8 +26,7 @@ struct DownstreamInput {
  * @brief Downstream streams and the number of aggregate channels.
  * @image input.svg
  */
-template <typename T>
-struct AggregateInput {
+template <typename T> struct AggregateInput {
   using Value = T;
 
   /**
@@ -64,8 +62,7 @@ struct ScopeInput {
  * @brief Consumer streams for the configured GPIO pins.
  * @image input.svg
  */
-template <typename T>
-struct GpioInput {
+template <typename T> struct GpioInput {
   using Value = T;
 
   /**
@@ -76,7 +73,7 @@ struct GpioInput {
   Array<Vectorized<Consumer<T>>> pins{};
 };
 
-}  // namespace push
+} // namespace push
 
 namespace push::f_32::transformers {
 
@@ -93,7 +90,7 @@ struct CosF32Output {
    * @brief Accepts values whose cosine is pushed to the downstream streams.
    * @image cos.svg
    */
-  Consumer<f32>* consumer{nullptr};
+  Consumer<f32> *consumer{nullptr};
 };
 
 /**
@@ -109,7 +106,7 @@ struct SinF32Output {
    * @brief Accepts values whose sine is pushed to the downstream streams.
    * @image sin.svg
    */
-  Consumer<f32>* consumer{nullptr};
+  Consumer<f32> *consumer{nullptr};
 };
 
 /**
@@ -144,7 +141,7 @@ struct SumF32Output {
   Vectorized<Consumer<f32>> channels{};
 };
 
-}  // namespace push::f_32::transformers
+} // namespace push::f_32::transformers
 
 namespace push::f_32::sinks {
 
@@ -164,7 +161,7 @@ struct ScopeF32Output {
   Vectorized<Consumer<f32>> channels{};
 };
 
-}  // namespace push::f_32::sinks
+} // namespace push::f_32::sinks
 
 namespace push::f_64::transformers {
 
@@ -181,7 +178,7 @@ struct CosF64Output {
    * @brief Accepts values whose cosine is pushed to the downstream streams.
    * @image cos.svg
    */
-  Consumer<f64>* consumer{nullptr};
+  Consumer<f64> *consumer{nullptr};
 };
 
 /**
@@ -197,7 +194,7 @@ struct SinF64Output {
    * @brief Accepts values whose sine is pushed to the downstream streams.
    * @image sin.svg
    */
-  Consumer<f64>* consumer{nullptr};
+  Consumer<f64> *consumer{nullptr};
 };
 
 /**
@@ -232,7 +229,7 @@ struct SumF64Output {
   Vectorized<Consumer<f64>> channels{};
 };
 
-}  // namespace push::f_64::transformers
+} // namespace push::f_64::transformers
 
 namespace push::f_64::sinks {
 
@@ -252,4 +249,4 @@ struct ScopeF64Output {
   Vectorized<Consumer<f64>> channels{};
 };
 
-}  // namespace push::f_64::sinks
+} // namespace push::f_64::sinks

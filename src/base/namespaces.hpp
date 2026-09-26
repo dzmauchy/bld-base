@@ -42,7 +42,7 @@ namespace sinks {}
  */
 namespace sources {}
 
-}  // namespace f_32
+} // namespace f_32
 
 /**
  * Double precision push dataflows
@@ -72,5 +72,5 @@ namespace sinks {}
  */
 namespace sources {}
 
-}  // namespace f_64
-}  // namespace push
+} // namespace f_64
+} // namespace push

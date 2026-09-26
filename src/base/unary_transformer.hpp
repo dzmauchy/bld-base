@@ -10,10 +10,10 @@ namespace push {
  * @brief Transforms each received value and pushes the result downstream.
  * @image transformer.svg
  */
-template <typename I, typename O>
-class UnaryTransformer : public NativeBlock<I, O> {
- public:
+template <typename I, typename O> class UnaryTransformer : public NativeBlock<I, O> {
+public:
   using T = I::Value;
+  using NativeBlock<I, O>::NativeBlock;
 
   ~UnaryTransformer() override = default;
 
@@ -22,16 +22,15 @@ class UnaryTransformer : public NativeBlock<I, O> {
     return O{.consumer = &pushConsumer_};
   }
 
- protected:
-  using NativeBlock<I, O>::NativeBlock;
+protected:
   [[nodiscard]]
   virtual T transform(T value) const = 0;
 
- private:
+private:
   void handlePush(const T value) { this->pushTo(downstream_, transform(value)); }
 
   Vectorized<Consumer<T>>                                            downstream_{};
   MemberConsumer<UnaryTransformer, T, &UnaryTransformer::handlePush> pushConsumer_{this};
 };
 
-}  // namespace push
+} // namespace push

@@ -7,8 +7,8 @@
 #include <vector>
 
 class MockRuntime {
- public:
-  static auto& instance();
+public:
+  static auto &instance();
 
   static void reset();
   static void start();
@@ -31,17 +31,17 @@ class MockRuntime {
   static auto activeGpioCount() -> u32;
   static auto intervalPeriodAt(u32 index) -> u32;
 
-  void handleOnStart(Callback* callback);
-  void handleOnClose(Callback* callback);
-  void handleOnStop(Callback* callback);
+  void handleOnStart(Callback *callback);
+  void handleOnClose(Callback *callback);
+  void handleOnStop(Callback *callback);
   auto handleSetInterval(u32       milliseconds,
-                         Callback* callback) -> u32;
+                         Callback *callback) -> u32;
   void handleClearInterval(u32 intervalId);
   auto handleReadGpio(u32 port,
                       u8  pin) const -> bool;
   auto handleSetGpio(u32       port,
                      u8        pin,
-                     Callback* callback) -> u32;
+                     Callback *callback) -> u32;
   void handleClearGpio(u32 gpioId);
   void handleSendGpio(u32  port,
                       u8   pin,
@@ -56,11 +56,11 @@ class MockRuntime {
   auto handleRandomF64() const -> f64;
   auto handleGetTime() const -> u64;
 
- private:
+private:
   struct Interval {
     u32       id;
     u32       period;
-    Callback* callback;
+    Callback *callback;
     bool      active;
   };
 
@@ -68,16 +68,16 @@ class MockRuntime {
     u32       id;
     u32       port;
     u8        pin;
-    Callback* callback;
+    Callback *callback;
     bool      active;
   };
 
   void fireGpio(u32 port,
                 u8  pin);
 
-  std::vector<Callback*>             start_{};
-  std::vector<Callback*>             close_{};
-  std::vector<Callback*>             stop_{};
+  std::vector<Callback *>            start_{};
+  std::vector<Callback *>            close_{};
+  std::vector<Callback *>            stop_{};
   std::vector<Interval>              intervals_{};
   std::vector<GpioListener>          gpio_{};
   std::map<std::pair<u32, u8>, bool> gpioValues_{};

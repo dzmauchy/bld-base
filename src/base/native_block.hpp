@@ -11,24 +11,23 @@
  * @brief A typed block with access to native runtime services.
  * @image block.svg
  */
-template <typename I, typename O>
-class NativeBlock : public Block<I, O> {
- public:
+template <typename I, typename O> class NativeBlock : public Block<I, O> {
+public:
   using Block<I, O>::Block;
   ~NativeBlock() override = default;
 
- protected:
+protected:
   /**
    * ClearIntervalCallback
    * @brief Clears a runtime interval when invoked.
    * @image consumer.svg
    */
   class ClearIntervalCallback final : public Callback {
-   public:
+  public:
     explicit ClearIntervalCallback(const u32 timer) : timer_(timer) {}
     void operator()() override { clearInterval(timer_); }
 
-   private:
+  private:
     u32 timer_;
   };
 
@@ -38,7 +37,7 @@ class NativeBlock : public Block<I, O> {
    * @image consumer.svg
    */
   class ClearGpioHandlesCallback final : public Callback {
-   public:
+  public:
     explicit ClearGpioHandlesCallback(Array<u32> handles) : handles_(move(handles)) {}
     void operator()() override {
       for (auto handle : handles_) {
@@ -46,16 +45,16 @@ class NativeBlock : public Block<I, O> {
       }
     }
 
-   private:
+  private:
     Array<u32> handles_;
   };
 
-  void onStart(auto& callback) { on_start(&callback); }
+  void onStart(auto &callback) { on_start(&callback); }
 
-  void onClose(auto& callback) { on_close(&callback); }
+  void onClose(auto &callback) { on_close(&callback); }
 
   auto setInterval(const auto milliseconds,
-                   auto&      callback) {
+                   auto      &callback) {
     return set_interval(milliseconds, &callback);
   }
 
@@ -63,15 +62,15 @@ class NativeBlock : public Block<I, O> {
 
   auto setGpio(const auto port,
                const auto pin,
-               auto&      callback) {
+               auto      &callback) {
     return set_gpio(port, pin, &callback);
   }
 
   static void clearGpio(const auto gpioId) { clear_gpio(gpioId); }
 
   void armInterval(const auto milliseconds,
-                   auto&      tick,
-                   auto&      closeSlot) {
+                   auto      &tick,
+                   auto      &closeSlot) {
     auto timer = setInterval(milliseconds, tick);
     closeSlot.emplace(timer);
     onClose(*closeSlot);
@@ -86,9 +85,9 @@ class NativeBlock : public Block<I, O> {
     send_value_f64(this->blockId, channel, value);
   }
 
-  static void pushTo(const auto& sinks,
+  static void pushTo(const auto &sinks,
                      const auto  value) {
-    for (auto* sink : sinks) {
+    for (auto *sink : sinks) {
       if (sink) {
         (*sink)(value);
       }
@@ -97,7 +96,7 @@ class NativeBlock : public Block<I, O> {
 
   template <typename T,
             typename Item>
-  static auto pointersOf(Array<Item>& items) -> Vectorized<Consumer<T>> {
+  static auto pointersOf(Array<Item> &items) -> Vectorized<Consumer<T>> {
     auto result = Vectorized<Consumer<T>>{};
     result.reserve(items.size());
     for (u32 i = 0; i < items.size(); ++i) {

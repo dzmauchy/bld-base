@@ -10,9 +10,8 @@ namespace push {
  * @brief Pushes a configured value when the runtime starts.
  * @image push.const.svg
  */
-template <typename I>
-class Constant : public NativeBlock<I, void> {
- public:
+template <typename I> class Constant : public NativeBlock<I, void> {
+public:
   using T = I::Value;
 
   explicit Constant(const u32 blockId,
@@ -28,11 +27,11 @@ class Constant : public NativeBlock<I, void> {
 
   const T value_;
 
- private:
+private:
   void handleStart() { this->pushTo(downstream_, value_); }
 
   Vectorized<Consumer<T>>                          downstream_{};
   MemberCallback<Constant, &Constant::handleStart> startCb_{this};
 };
 
-}  // namespace push
+} // namespace push

@@ -18,9 +18,8 @@ using f64 = double;
  * @brief A stream of data that can be pushed to
  * @image consumer.svg
  */
-template <typename... Args>
-class Consumer {
- public:
+template <typename... Args> class Consumer {
+public:
   virtual ~Consumer() = default;
   virtual void operator()(Args... args) = 0;
 };

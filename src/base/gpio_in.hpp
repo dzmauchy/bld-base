@@ -10,9 +10,8 @@ namespace push {
  * @brief Pushes GPIO levels to the streams for each configured pin.
  * @image push.gpio_in.svg
  */
-template <typename I>
-class GpioIn : public NativeBlock<I, void> {
- public:
+template <typename I> class GpioIn : public NativeBlock<I, void> {
+public:
   using T = I::Value;
 
   explicit GpioIn(const u32 blockId,
@@ -49,7 +48,7 @@ class GpioIn : public NativeBlock<I, void> {
    * @image push.gpio_in.svg
    */
   struct PinSlot {
-    GpioIn* parent{nullptr};
+    GpioIn *parent{nullptr};
     u8      pinNumber{0};
     /**
      * Cbk
@@ -57,14 +56,14 @@ class GpioIn : public NativeBlock<I, void> {
      * @image consumer.svg
      */
     struct Cbk final : public Callback {
-      explicit Cbk(PinSlot* const owner) : slot(owner) {}
+      explicit Cbk(PinSlot *const owner) : slot(owner) {}
       void     operator()() override;
-      PinSlot* slot;
+      PinSlot *slot;
     } callback;
     PinSlot() : callback(this) {}
   };
 
- private:
+private:
   [[nodiscard]]
   auto searchPin(const u8 pin) const -> u32 {
     for (u32 i = 0; i < pins_.size(); ++i) {
@@ -96,9 +95,6 @@ class GpioIn : public NativeBlock<I, void> {
   MemberCallback<GpioIn, &GpioIn::handleClose> closeCb_{this};
 };
 
-template <typename I>
-void GpioIn<I>::PinSlot::Cbk::operator()() {
-  slot->parent->emitPin(slot->pinNumber);
-}
+template <typename I> void GpioIn<I>::PinSlot::Cbk::operator()() { slot->parent->emitPin(slot->pinNumber); }
 
-}  // namespace push
+} // namespace push
