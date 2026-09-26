@@ -88,12 +88,12 @@ class GpioIn : public NativeBlock<I, void> {
     }
   }
 
-  Vectorized<Consumer<T>>                            pinConsumers_[kMaxPins]{};
-  PinSlot                                            slots_[kMaxPins]{};
-  u32                                                handles_[kMaxPins]{};
-  u32                                                handleCount_{0};
-  u8                                                 connected_{0};
-  MemberCallback<GpioIn<I>, &GpioIn<I>::handleClose> closeCb_{this};
+  Vectorized<Consumer<T>>                      pinConsumers_[kMaxPins]{};
+  PinSlot                                      slots_[kMaxPins]{};
+  u32                                          handles_[kMaxPins]{};
+  u32                                          handleCount_{0};
+  u8                                           connected_{0};
+  MemberCallback<GpioIn, &GpioIn::handleClose> closeCb_{this};
 };
 
 template <typename I>

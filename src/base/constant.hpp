@@ -31,8 +31,8 @@ class Constant : public NativeBlock<I, void> {
  private:
   void handleStart() { this->pushTo(downstream_, value_); }
 
-  Vectorized<Consumer<T>>                                downstream_{};
-  MemberCallback<Constant<I>, &Constant<I>::handleStart> startCb_{this};
+  Vectorized<Consumer<T>>                          downstream_{};
+  MemberCallback<Constant, &Constant::handleStart> startCb_{this};
 };
 
 }  // namespace push

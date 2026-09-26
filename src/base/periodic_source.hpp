@@ -44,9 +44,9 @@ class PeriodicSource : public NativeBlock<I, void> {
     this->armInterval(intervalMs_, tickCb_, closeCb_);
   }
 
-  MemberCallback<PeriodicSource<I>, &PeriodicSource<I>::handleTick>  tickCb_{this};
-  MemberCallback<PeriodicSource<I>, &PeriodicSource<I>::handleStart> startCb_{this};
-  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback>        closeCb_{};
+  MemberCallback<PeriodicSource, &PeriodicSource::handleTick>  tickCb_{this};
+  MemberCallback<PeriodicSource, &PeriodicSource::handleStart> startCb_{this};
+  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback>  closeCb_{};
 };
 
 }  // namespace push

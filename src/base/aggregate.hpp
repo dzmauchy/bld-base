@@ -70,12 +70,12 @@ class Aggregate : public NativeBlock<I, O> {
     }
   }
 
-  Vectorized<Consumer<T>>                                                           downstream_{};
-  Array<T>                                                                          values_{};
-  Array<IndexedMemberConsumer<Aggregate<I, O>, T, &Aggregate<I, O>::handleChannel>> inputs_{};
-  MemberCallback<Aggregate<I, O>, &Aggregate<I, O>::handleTick>                     tickCb_{this};
-  MemberCallback<Aggregate<I, O>, &Aggregate<I, O>::handleStart>                    startCb_{this};
-  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback>                          closeCb_{};
+  Vectorized<Consumer<T>>                                               downstream_{};
+  Array<T>                                                              values_{};
+  Array<IndexedMemberConsumer<Aggregate, T, &Aggregate::handleChannel>> inputs_{};
+  MemberCallback<Aggregate, &Aggregate::handleTick>                     tickCb_{this};
+  MemberCallback<Aggregate, &Aggregate::handleStart>                    startCb_{this};
+  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback>              closeCb_{};
 };
 
 }  // namespace push

@@ -45,7 +45,7 @@ class Scope : public NativeBlock<I, O> {
     return this->template pointersOf<T>(channels_);
   }
 
-  Array<IndexedMemberConsumer<Scope<I, O>, T, &Scope<I, O>::handlePush>> channels_{};
+  Array<IndexedMemberConsumer<Scope, T, &Scope::handlePush>> channels_{};
 };
 
 }  // namespace push

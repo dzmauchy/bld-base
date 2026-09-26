@@ -30,8 +30,8 @@ class UnaryTransformer : public NativeBlock<I, O> {
  private:
   void handlePush(const T value) { this->pushTo(downstream_, transform(value)); }
 
-  Vectorized<Consumer<T>>                                                        downstream_{};
-  MemberConsumer<UnaryTransformer<I, O>, T, &UnaryTransformer<I, O>::handlePush> pushConsumer_{this};
+  Vectorized<Consumer<T>>                                            downstream_{};
+  MemberConsumer<UnaryTransformer, T, &UnaryTransformer::handlePush> pushConsumer_{this};
 };
 
 }  // namespace push
