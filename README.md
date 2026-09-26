@@ -97,7 +97,8 @@ Sources live under `src/`. Install and the release archive use the contents of t
 - `base/` — this library's push blocks, including the f32 and f64 endpoints
 - `base.hpp` — includes those endpoints (`#include <base.hpp>`)
 
-The versioned release archive contains `base.hpp`, `base/`, and `core/`, including `core/math/`.
+The versioned release archive contains `base.hpp`, `base/`, and `core/`, including `core/math/`,
+plus `meta.json` at the archive root. The release workflow generates the metadata before packaging.
 
 ## Metadata
 
