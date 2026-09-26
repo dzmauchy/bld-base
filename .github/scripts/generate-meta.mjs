@@ -50,13 +50,7 @@ async function compile(assets) {
   }
   await copyHeaders('');
   if (!sources.size) throw new Error('No .hpp files found under src/');
-  // Include the public entry point first, then cover headers it does not include.
   const headers = [...sources.keys()].sort();
-  const entry = '/project/src/base.hpp';
-  if (sources.has(entry)) {
-    headers.splice(headers.indexOf(entry), 1);
-    headers.unshift(entry);
-  }
   FS.writeFile('/project/meta.cpp', headers.map(file => `#include "${file}"`).join('\n'));
 
   // Write stdout directly into MEMFS: print() loses the final JSON brace because

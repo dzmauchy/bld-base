@@ -32,7 +32,7 @@ documented fields. Blocks with multiple outputs declare one field per output
 and populate those fields in `apply`.
 
 ```cpp
-#include <base.hpp>
+#include <base/f32_blocks.hpp>
 
 push::f32::sinks::ScopeF32<> scope(0);
 push::f32::transformers::CosF32<> cosine(1);
@@ -94,10 +94,9 @@ Sources live under `src/`. Install and the release archive use the contents of t
 
 - `core/` — shared HAL and runtime headers (`Block`, `Callback`, `Array`, `Maybe`, `move()`, member adapters), included as `#include <core/....hpp>`
 - `core/math/` — `wrapTwoPi` and trigonometry helpers, included as `#include <core/math/trig.hpp>`
-- `base/` — this library's push blocks, including the f32 and f64 endpoints
-- `base.hpp` — includes those endpoints (`#include <base.hpp>`)
+- `base/` — this library's push blocks; include `base/f32_blocks.hpp` or `base/f64_blocks.hpp` for the corresponding endpoints
 
-The versioned release archive contains `base.hpp`, `base/`, and `core/`, including `core/math/`,
+The versioned release archive contains `base/` and `core/`, including `core/math/`,
 plus `meta.json` at the archive root. The release workflow generates the metadata before packaging.
 
 ## Metadata

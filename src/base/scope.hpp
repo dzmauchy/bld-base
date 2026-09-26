@@ -1,7 +1,6 @@
 #pragma once
 
 #include <base/native_block.hpp>
-#include <base/ports.hpp>
 
 /**
  * Push

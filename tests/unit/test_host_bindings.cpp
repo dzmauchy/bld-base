@@ -1,6 +1,7 @@
 #include <doctest/doctest.h>
 
-#include <base.hpp>
+#include <base/f32_blocks.hpp>
+#include <base/f64_blocks.hpp>
 #include <core/hal.hpp>
 #include <type_traits>
 

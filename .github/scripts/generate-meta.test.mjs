@@ -74,8 +74,7 @@ test('reads unincluded headers, UTF-8 comments, and multiple fields; preserves o
     await mkdir(path.join(temporary, 'src/core'), { recursive: true });
     const fixtureScript = path.join(temporary, '.github/scripts/generate-meta.mjs');
     await copyFile(script, fixtureScript);
-    await writeFile(path.join(temporary, 'src/base.hpp'), `
-#include <type_traits>
+    await writeFile(path.join(temporary, 'src/blocks.hpp'), `
 template <typename I, typename O> class Block {};
 namespace example {
 /** Entrée

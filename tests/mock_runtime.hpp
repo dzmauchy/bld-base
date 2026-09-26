@@ -1,6 +1,7 @@
 #pragma once
 
-#include <core/hal.hpp>
+#include <core/callback.hpp>
+#include <core/types.hpp>
 #include <map>
 #include <utility>
 #include <vector>

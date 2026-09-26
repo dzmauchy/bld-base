@@ -1,7 +1,6 @@
 #pragma once
 
 #include <base/periodic_source.hpp>
-#include <base/ports.hpp>
 #include <core/math/trig.hpp>
 
 /**

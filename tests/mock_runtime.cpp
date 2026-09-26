@@ -1,5 +1,6 @@
 #include "mock_runtime.hpp"
 
+#include <core/hal.hpp>
 #include <algorithm>
 #include <cmath>
 #include <limits>
