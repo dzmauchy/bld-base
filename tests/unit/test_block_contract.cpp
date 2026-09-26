@@ -97,11 +97,6 @@ static_assert(hasBlockContract<push::f64::sources::GpioInF64<>, void>);
  */
 template <typename T>
 struct DualScopeOutput {
-  /**
-   * Value
-   * @brief The numeric type accepted by both output ports.
-   * @image type.svg
-   */
   using Value = T;
 
   /**

@@ -213,18 +213,16 @@ function extractMetadata(ast, sources) {
     return [...inherited, ...fields.map(field => metadata(field, declaration.scope))];
   }
 
-  const types = [];
   const blocks = [];
   for (const declaration of declarations.values()) {
     const parameters = children(declaration.template ?? {}).filter(child => child.kind === 'TemplateTypeParmDecl');
     const input = parameters.find(parameter => parameter.name === 'I')?.defaultArg?.type;
-    const output = parameters.find(parameter => parameter.name === 'O')?.defaultArg?.type;
-    // The library's usable block templates provide defaults for both I and O.
-    if (input && output && isBlock(declaration)) {
+    const outputParameter = parameters.find(parameter => parameter.name === 'O');
+    const output = outputParameter?.defaultArg?.type;
+    // A block may omit O when its base fixes the output type to void.
+    if (input && (!outputParameter || output) && isBlock(declaration)) {
       blocks.push({ ...declaration.meta,
-        inputs: ports(input, declaration.scope), outputs: ports(output, declaration.scope) });
-    } else if (declaration.node.loc.file === '/project/src/core/types.hpp') {
-      types.push(declaration.meta);
+        inputs: ports(input, declaration.scope), outputs: output ? ports(output, declaration.scope) : [] });
     }
   }
   const sorted = values => [...values].sort((a, b) => {
@@ -232,7 +230,7 @@ function extractMetadata(ast, sources) {
     const right = b.namespace === undefined ? b.id : `${b.namespace}::${b.id}`;
     return left < right ? -1 : left > right ? 1 : 0;
   });
-  return { namespaces: sorted(namespaces.values()), types: sorted(types), blocks: sorted(blocks) };
+  return { namespaces: sorted(namespaces.values()), blocks: sorted(blocks) };
 }
 
 if (isMainThread) {
@@ -249,7 +247,7 @@ if (isMainThread) {
     });
     await mkdir(path.join(root, '.cache'), { recursive: true });
     await writeFile(path.join(root, '.cache/meta.json'), `${JSON.stringify(result, null, 2)}\n`);
-    console.log(`Wrote .cache/meta.json: ${result.types.length} types, ${result.blocks.length} blocks, ${result.namespaces.length} namespaces`);
+    console.log(`Wrote .cache/meta.json: ${result.blocks.length} blocks, ${result.namespaces.length} namespaces`);
   } catch (error) {
     console.error(error.message);
     process.exitCode = 1;

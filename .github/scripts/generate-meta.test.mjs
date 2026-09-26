@@ -16,16 +16,15 @@ test('generates all library ports, documentation, and only the requested metadat
   assert.equal(result.status, 0, result.stderr);
   const generated = await readFile(path.join(root, '.cache/meta.json'), 'utf8');
   const meta = JSON.parse(generated);
+  assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
   assert.equal(meta.blocks.length, 22);
   assert.equal(meta.namespaces.length, 10);
-  assert.deepEqual(meta.types.map(entry => entry.id).sort(),
-    ['Bool', 'Consumer', 'f32', 'f64', 'i8', 'i16', 'i32', 'i64', 'u8', 'u16', 'u32', 'u64'].sort());
   assert.deepEqual(meta.namespaces.map(entry => entry.id), [
     'math', 'push', 'push::f32', 'push::f32::sinks', 'push::f32::sources', 'push::f32::transformers',
     'push::f64', 'push::f64::sinks', 'push::f64::sources', 'push::f64::transformers',
   ]);
   const entryKeys = ['description', 'icon', 'id', 'name', 'namespace'];
-  for (const category of ['types', 'namespaces', 'blocks']) {
+  for (const category of ['namespaces', 'blocks']) {
     const keys = category === 'namespaces' ? entryKeys.filter(key => key !== 'namespace') : entryKeys;
     const ids = meta[category].map(entry => category === 'namespaces' ? entry.id : `${entry.namespace}::${entry.id}`);
     assert.equal(new Set(ids).size, ids.length);
@@ -54,10 +53,6 @@ test('generates all library ports, documentation, and only the requested metadat
       assert.deepEqual([block.inputs.map(port => port.id), block.outputs.map(port => port.id)], ports);
     }
   }
-  assert.deepEqual(meta.types.find(entry => entry.id === 'Bool'), {
-    id: 'Bool', namespace: '', name: 'Boolean',
-    description: 'A boolean value that can be either true or false', icon: 'type.svg',
-  });
   const cosine = meta.blocks.find(entry => entry.id === 'CosF32');
   assert.equal(cosine.name, 'cos');
   assert.equal(cosine.icon, 'cos.svg');
@@ -93,6 +88,8 @@ struct Out { int result; int extra; };
 using Output = Out;
 template <typename I = In, typename O = Output>
 class Example : public Block<I, O> {};
+template <typename I = In>
+class Source : public Block<I, void> {};
 }
 `);
     await writeFile(path.join(temporary, 'src/extra.hpp'), '/** Additional type */\nusing Extra = double;\n');
@@ -103,12 +100,15 @@ class Example : public Block<I, O> {};
     await assert.rejects(readFile(path.join(temporary, 'meta.json')), { code: 'ENOENT' });
     const generated = await readFile(output, 'utf8');
     const meta = JSON.parse(generated);
-    assert.deepEqual(meta.types.map(entry => entry.id), ['Scalar']);
-    assert.equal(meta.blocks.length, 1);
+    assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
+    assert.equal(meta.blocks.length, 2);
     assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['first', 'second']);
     assert.deepEqual(meta.blocks[0].outputs.map(port => port.id), ['result', 'extra']);
     assert.equal(meta.blocks[0].inputs[0].name, 'Première valeur');
     assert.equal(meta.blocks[0].inputs[0].icon, 'first.svg');
+    const source = meta.blocks.find(entry => entry.id === 'Source');
+    assert.ok(source);
+    assert.deepEqual(source.outputs, []);
     await writeFile(path.join(temporary, 'src/extra.hpp'), '#error deliberate compiler failure\n');
     const failed = run(fixtureScript);
     assert.notEqual(failed.status, 0);

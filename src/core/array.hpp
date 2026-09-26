@@ -144,11 +144,6 @@ class Array {
   u32 cap_ = 0;
 };
 
-/**
- * Vectorized
- * @brief An array of pointers to port endpoints.
- * @image array.svg
- */
 template <typename T>
 using Vectorized = Array<T*>;
 

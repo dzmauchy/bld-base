@@ -17,11 +17,6 @@ namespace push {
  */
 template <typename T>
 struct DownstreamInput {
-  /**
-   * Value
-   * @brief The numeric value carried by the consumer streams.
-   * @image type.svg
-   */
   using Value = T;
 
   /**
@@ -39,11 +34,6 @@ struct DownstreamInput {
  */
 template <typename T>
 struct AggregateInput {
-  /**
-   * Value
-   * @brief The numeric value carried by the consumer streams.
-   * @image type.svg
-   */
   using Value = T;
 
   /**
@@ -81,11 +71,6 @@ struct ScopeInput {
  */
 template <typename T>
 struct GpioInput {
-  /**
-   * Value
-   * @brief The numeric value carried by the consumer streams.
-   * @image type.svg
-   */
   using Value = T;
 
   /**
@@ -103,11 +88,6 @@ struct GpioInput {
  */
 namespace f32 {
 
-/**
- * F32
- * @brief The scalar type for this namespace.
- * @image type.svg
- */
 using F32 = ::f32;
 
 /**
@@ -123,11 +103,6 @@ namespace transformers {
  * @image cos.svg
  */
 struct CosF32Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F32;
 
   /**
@@ -144,11 +119,6 @@ struct CosF32Output {
  * @image sin.svg
  */
 struct SinF32Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F32;
 
   /**
@@ -165,11 +135,6 @@ struct SinF32Output {
  * @image product.svg
  */
 struct ProductF32Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F32;
 
   /**
@@ -186,11 +151,6 @@ struct ProductF32Output {
  * @image sum.svg
  */
 struct SumF32Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F32;
 
   /**
@@ -216,11 +176,6 @@ namespace sinks {
  * @image scope.svg
  */
 struct ScopeF32Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F32;
 
   /**
@@ -242,11 +197,6 @@ struct ScopeF32Output {
  */
 namespace f64 {
 
-/**
- * F64
- * @brief The scalar type for this namespace.
- * @image type.svg
- */
 using F64 = ::f64;
 
 /**
@@ -262,11 +212,6 @@ namespace transformers {
  * @image cos.svg
  */
 struct CosF64Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F64;
 
   /**
@@ -283,11 +228,6 @@ struct CosF64Output {
  * @image sin.svg
  */
 struct SinF64Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F64;
 
   /**
@@ -304,11 +244,6 @@ struct SinF64Output {
  * @image product.svg
  */
 struct ProductF64Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F64;
 
   /**
@@ -325,11 +260,6 @@ struct ProductF64Output {
  * @image sum.svg
  */
 struct SumF64Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F64;
 
   /**
@@ -355,11 +285,6 @@ namespace sinks {
  * @image scope.svg
  */
 struct ScopeF64Output {
-  /**
-   * Value
-   * @brief The numeric type carried by the output consumers.
-   * @image type.svg
-   */
   using Value = F64;
 
   /**

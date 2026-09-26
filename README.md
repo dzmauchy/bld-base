@@ -1,6 +1,3 @@
-# BASE block library (C++)
-
-A header-only C++ library. Namespaces, types, block classes, and input/output fields carry documentation comments that core can read from the clang AST. Production sources are headers; the CMake target builds those headers and the native tests.
 
 The project version is `VERSION` in `CMakeLists.txt`.
 
@@ -117,21 +114,22 @@ No npm dependencies or native compiler are needed. The release's browser-only
 JS glue runs in an isolated Node worker. Its `unsupported syscall: __syscall_prlimit64`
 warning is harmless for AST generation.
 
-The output has `namespaces`, `types`, and `blocks` arrays. Namespace entries use
-fully qualified IDs such as `push::f32::sinks` and contain `id`, `name`,
-`description`, and `icon`. Type, block, and port entries also contain `namespace`;
-blocks have `inputs` and `outputs` arrays. Names come from the first
+The output has `namespaces` and `blocks` arrays. Namespace entries use fully
+qualified IDs such as `push::f32::sinks` and contain `id`, `name`, `description`,
+and `icon`. Block and port entries also contain `namespace`; blocks have `inputs`
+and `outputs` arrays. Names come from the first
 documentation paragraph, descriptions from `@brief`/`@details`, and icons from
 `@image`. Missing documentation falls back to the declaration name and empty
 description/icon strings. `namespace` is the enclosing C++ scope (`""` for global
-scope); for nested types it includes the enclosing classes. Port scopes are
-those of their declaring structs. IDs are unqualified declaration names; port
-IDs are field names. The `types` array includes only declarations from
-`src/core/types.hpp`. C++ type expressions and compiler-generated IDs are omitted.
+scope). Port scopes are those of their declaring structs. IDs are unqualified
+declaration names; port IDs are field names. C++ type expressions and
+compiler-generated IDs are omitted.
 
-Blocks are descendants of `Block` with default `I` and `O` template arguments.
+Blocks are descendants of `Block` whose `I` template parameter has a default and
+whose `O` parameter is either absent or has a default. A missing `O` means `void`.
 Their ports come from those default structs; `void` produces an empty output
-array. Generic implementation templates without defaults are omitted from `blocks`.
+array. Generic implementation templates without the required defaults are
+omitted from `blocks`.
 Repeated namespace declarations and implicit template instances are deduplicated.
 
 Run the metadata checks with the same assets available:

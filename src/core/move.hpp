@@ -7,11 +7,6 @@
  */
 template <typename T>
 struct RemoveReference {
-  /**
-   * type
-   * @brief The underlying value type.
-   * @image type.svg
-   */
   using type = T;
 };
 
@@ -22,11 +17,6 @@ struct RemoveReference {
  */
 template <typename T>
 struct RemoveReference<T&> {
-  /**
-   * type
-   * @brief The underlying value type.
-   * @image type.svg
-   */
   using type = T;
 };
 
@@ -37,19 +27,9 @@ struct RemoveReference<T&> {
  */
 template <typename T>
 struct RemoveReference<T&&> {
-  /**
-   * type
-   * @brief The underlying value type.
-   * @image type.svg
-   */
   using type = T;
 };
 
-/**
- * remove_reference_t
- * @brief The underlying type with its reference removed.
- * @image type.svg
- */
 template <typename T>
 using remove_reference_t = RemoveReference<T>::type;
 
