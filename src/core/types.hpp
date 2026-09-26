@@ -1,55 +1,77 @@
 #pragma once
 
 /**
- * <type name="Boolean" description="A boolean value that can be either true or false"/>
+ * Boolean
+ * @brief A boolean value that can be either true or false
+ * @image type.svg
  */
 using Bool = bool;
 
 /**
- * <type name="Signed 8-bit Integer" description="A signed integer value that can hold values from -128 to 127"/>
+ * Signed 8-bit Integer
+ * @brief A signed integer value that can hold values from -128 to 127
+ * @image type.svg
  */
 using i8 = signed char;
 /**
- * <type name="Unsigned 8-bit Integer" description="An unsigned integer value that can hold values from 0 to 255"/>
+ * Unsigned 8-bit Integer
+ * @brief An unsigned integer value that can hold values from 0 to 255
+ * @image type.svg
  */
 using u8 = unsigned char;
 /**
- * <type name="Signed 16-bit Integer" description="A signed integer value that can hold values from -32768 to 32767"/>
+ * Signed 16-bit Integer
+ * @brief A signed integer value that can hold values from -32768 to 32767
+ * @image type.svg
  */
 using i16 = short;
 /**
- * <type name="Unsigned 16-bit Integer" description="An unsigned integer value that can hold values from 0 to 65535"/>
+ * Unsigned 16-bit Integer
+ * @brief An unsigned integer value that can hold values from 0 to 65535
+ * @image type.svg
  */
 using u16 = unsigned short;
 /**
- * <type name="Signed 32-bit Integer" description="A signed integer value that can hold values from -2147483648 to 2147483647"/>
+ * Signed 32-bit Integer
+ * @brief A signed integer value that can hold values from -2147483648 to 2147483647
+ * @image type.svg
  */
 using i32 = int;
 /**
- * <type name="Unsigned 32-bit Integer" description="An unsigned integer value that can hold values from 0 to 4294967295"/>
+ * Unsigned 32-bit Integer
+ * @brief An unsigned integer value that can hold values from 0 to 4294967295
+ * @image type.svg
  */
 using u32 = unsigned int;
 /**
- * <type name="Signed 64-bit Integer" description="A signed integer value that can hold values from -9223372036854775808 to 9223372036854775807"/>
+ * Signed 64-bit Integer
+ * @brief A signed integer value that can hold values from -9223372036854775808 to 9223372036854775807
+ * @image type.svg
  */
 using i64 = long long;
 /**
- * <type name="Unsigned 64-bit Integer" description="An unsigned integer value that can hold values from 0 to 18446744073709551615"/>
+ * Unsigned 64-bit Integer
+ * @brief An unsigned integer value that can hold values from 0 to 18446744073709551615
+ * @image type.svg
  */
 using u64 = unsigned long long;
 /**
- * <type name="32-bit Floating Point Number" description="A floating point value that can hold values from approximately -3.40282347e+38 to 3.40282347e+38"/>
+ * 32-bit Floating Point Number
+ * @brief A floating point value that can hold values from approximately -3.40282347e+38 to 3.40282347e+38
+ * @image type.svg
  */
 using f32 = float;
 /**
- * <type name="64-bit Floating Point Number" description="A floating point value that can hold values from approximately -1.7976931348623157e+308 to 1.7976931348623157e+308"/>
+ * 64-bit Floating Point Number
+ * @brief A floating point value that can hold values from approximately -1.7976931348623157e+308 to 1.7976931348623157e+308
+ * @image type.svg
  */
 using f64 = double;
 
 /**
- * <type icon="consumer.svg" name="Consumer" description="A stream of data that can be pushed to">
- *   <arg name="T" description="Consumed value type"/>
- * </type>
+ * Consumer
+ * @brief A stream of data that can be pushed to
+ * @image consumer.svg
  */
 template <typename... Args>
 class Consumer {

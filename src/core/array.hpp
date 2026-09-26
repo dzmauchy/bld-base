@@ -1,15 +1,14 @@
 #pragma once
 
+#include <core/move.hpp>
+#include <core/types.hpp>
 #include <initializer_list>
 #include <new>
 
-#include <core/move.hpp>
-#include <core/types.hpp>
-
 /**
- * <type name="Array" description="An array of values">
- *   <arg name="T" description="Array component type"/>
- * </type>
+ * Array
+ * @brief An array of values
+ * @image type.svg
  */
 template <typename T>
 class Array {
@@ -145,6 +144,11 @@ class Array {
   u32 cap_ = 0;
 };
 
+/**
+ * Vectorized
+ * @brief An array of pointers to port endpoints.
+ * @image array.svg
+ */
 template <typename T>
 using Vectorized = Array<T*>;
 

@@ -3,6 +3,11 @@
 #include <core/hal.hpp>
 #include <core/types.hpp>
 
+/**
+ * math
+ * @brief Numeric constants and trigonometry helpers.
+ * @image math.svg
+ */
 namespace math {
 
 template <typename T>

@@ -1,29 +1,47 @@
 #pragma once
 
 #include <base/native_block.hpp>
+#include <base/ports.hpp>
 #include <core/move.hpp>
 
+/**
+ * Push
+ * @brief Push dataflows.
+ * @image push-ns.svg
+ */
 namespace push {
 
-template <typename T>
-class UnaryTransformer : public NativeBlock {
+/**
+ * UnaryTransformer
+ * @brief Transforms each received value and pushes the result downstream.
+ * @image transformer.svg
+ */
+template <typename I, typename O>
+class UnaryTransformer : public NativeBlock<I, O> {
  public:
+  /**
+   * Value
+   * @brief The numeric type carried by this block.
+   * @image type.svg
+   */
+  using T = typename I::Value;
+
   ~UnaryTransformer() override = default;
 
-  [[nodiscard]] auto apply(Vectorized<Consumer<T>> downstream) {
-    downstream_ = move(downstream);
-    return &pushConsumer_;
+  [[nodiscard]] O apply(I input) override {
+    downstream_ = move(input.downstream);
+    return O{.consumer = &pushConsumer_};
   }
 
  protected:
-  using NativeBlock::NativeBlock;
+  using NativeBlock<I, O>::NativeBlock;
   [[nodiscard]] virtual T transform(T value) const = 0;
 
  private:
-  void handlePush(T value) { pushTo(downstream_, transform(value)); }
+  void handlePush(T value) { this->pushTo(downstream_, transform(value)); }
 
   Vectorized<Consumer<T>> downstream_{};
-  MemberConsumer<UnaryTransformer<T>, T, &UnaryTransformer<T>::handlePush> pushConsumer_{this};
+  MemberConsumer<UnaryTransformer<I, O>, T, &UnaryTransformer<I, O>::handlePush> pushConsumer_{this};
 };
 
 }  // namespace push

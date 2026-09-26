@@ -1,22 +1,43 @@
 #pragma once
 
 #include <base/native_block.hpp>
+#include <base/ports.hpp>
+#include <core/maybe.hpp>
 #include <core/move.hpp>
 
+/**
+ * Push
+ * @brief Push dataflows.
+ * @image push-ns.svg
+ */
 namespace push {
 
-template <typename T>
-class PeriodicSource : public NativeBlock {
+/**
+ * PeriodicSource
+ * @brief Emits sampled values at a configured interval.
+ * @image source.svg
+ */
+template <typename I, typename O>
+class PeriodicSource : public NativeBlock<I, O> {
  public:
+  /**
+   * Value
+   * @brief The numeric type carried by this block.
+   * @image type.svg
+   */
+  using T = typename I::Value;
+
+  static_assert(std::is_void_v<O>, "Push sources have no returned ports");
+
   ~PeriodicSource() override = default;
 
-  void apply(Vectorized<Consumer<T>> downstream) {
-    downstream_ = move(downstream);
-    onStart(startCb_);
+  O apply(I input) override {
+    downstream_ = move(input.downstream);
+    this->onStart(startCb_);
   }
 
  protected:
-  PeriodicSource(u32 blockId, u32 intervalMs) : NativeBlock(blockId), intervalMs_(intervalMs) {}
+  PeriodicSource(u32 blockId, u32 intervalMs) : NativeBlock<I, O>(blockId), intervalMs_(intervalMs) {}
 
   virtual void onStarted() {}
   [[nodiscard]] virtual T sample() = 0;
@@ -27,15 +48,15 @@ class PeriodicSource : public NativeBlock {
   u32 intervalMs_;
 
  private:
-  void handleTick() { pushTo(downstream_, sample()); }
+  void handleTick() { this->pushTo(downstream_, sample()); }
   void handleStart() {
     onStarted();
-    armInterval(intervalMs_, tickCb_, closeCb_);
+    this->armInterval(intervalMs_, tickCb_, closeCb_);
   }
 
-  MemberCallback<PeriodicSource<T>, &PeriodicSource<T>::handleTick> tickCb_{this};
-  MemberCallback<PeriodicSource<T>, &PeriodicSource<T>::handleStart> startCb_{this};
-  Maybe<ClearIntervalCallback> closeCb_{};
+  MemberCallback<PeriodicSource<I, O>, &PeriodicSource<I, O>::handleTick> tickCb_{this};
+  MemberCallback<PeriodicSource<I, O>, &PeriodicSource<I, O>::handleStart> startCb_{this};
+  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback> closeCb_{};
 };
 
 }  // namespace push

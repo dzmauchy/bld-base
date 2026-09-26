@@ -3,6 +3,7 @@
 #include <base/aggregate.hpp>
 #include <base/constant.hpp>
 #include <base/gpio_in.hpp>
+#include <base/ports.hpp>
 #include <base/pulse_gen.hpp>
 #include <base/rand_gen.hpp>
 #include <base/scope.hpp>
@@ -11,78 +12,76 @@
 #include <core/math/trig.hpp>
 
 /**
- * <namespace icon="push-ns.svg" description="Push Dataflows"/>
+ * Push Dataflows
+ * @brief Push Dataflows
+ * @image push-ns.svg
  */
 namespace push {
 /**
- * <namespace icon="push.f64-ns.svg" description="Double precision push dataflows"/>
+ * Double precision push dataflows
+ * @brief Double precision push dataflows
+ * @image push.f64-ns.svg
  */
 namespace f64 {
 
-using F64 = ::f64;
-
 /**
- * <namespace icon="push.transformers-ns.svg" description="Transformers"/>
+ * Transformers
+ * @brief Transformers
+ * @image push.transformers-ns.svg
  */
 namespace transformers {
 
 /**
- * <block icon="cos.svg" title="cos" description="Computes the cosine of the input value">
- *   <input icon="cos.svg" description="Value whose cosine is computed"/>
- *   <output icon="cos.svg" description="Cosine of the input value"/>
- * </block>
+ * cos
+ * @brief Computes the cosine of the input value
+ * @image cos.svg
  */
-class CosF64 : public UnaryTransformer<F64> {
+template <typename I = DownstreamInput<F64>, typename O = CosF64Output>
+class CosF64 : public UnaryTransformer<I, O> {
  public:
-  explicit CosF64(u32 blockId) : UnaryTransformer<F64>(blockId) {}
+  explicit CosF64(u32 blockId) : UnaryTransformer<I, O>(blockId) {}
 
  protected:
   [[nodiscard]] F64 transform(F64 value) const override { return math::cos(value); }
 };
 
 /**
- * <block icon="sin.svg" title="sin" description="Computes the sine of the input value">
- *   <input icon="sin.svg" description="Value whose sine is computed"/>
- *   <output icon="sin.svg" description="Sine of the input value"/>
- * </block>
+ * sin
+ * @brief Computes the sine of the input value
+ * @image sin.svg
  */
-class SinF64 : public UnaryTransformer<F64> {
+template <typename I = DownstreamInput<F64>, typename O = SinF64Output>
+class SinF64 : public UnaryTransformer<I, O> {
  public:
-  explicit SinF64(u32 blockId) : UnaryTransformer<F64>(blockId) {}
+  explicit SinF64(u32 blockId) : UnaryTransformer<I, O>(blockId) {}
 
  protected:
   [[nodiscard]] F64 transform(F64 value) const override { return math::sin(value); }
 };
 
 /**
- * <block icon="product.svg" title="Product" description="Computes the product of the input values">
- *   <conf id="precision" type="u32">
- *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
- *   </conf>
- *   <input icon="product.svg" description="Values to multiply"/>
- *   <output icon="product.svg" description="Product of the input values"/>
- * </block>
+ * Product
+ * @brief Computes the product of the input values
+ * @image product.svg
  */
-class ProductF64 : public Aggregate<F64> {
+template <typename I = AggregateInput<F64>, typename O = ProductF64Output>
+class ProductF64 : public Aggregate<I, O> {
  public:
-  explicit ProductF64(u32 blockId, u32 precision = 10) : Aggregate<F64>(blockId, precision) {}
+  explicit ProductF64(u32 blockId, u32 precision = 10) : Aggregate<I, O>(blockId, precision) {}
 
  protected:
   [[nodiscard]] F64 combine(F64 acc, F64 value) const override { return acc * value; }
 };
 
 /**
- * <block icon="sum.svg" title="Sum" description="Computes the sum of the input values">
- *   <conf id="precision" type="u32">
- *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
- *   </conf>
- *   <input icon="sum.svg" description="Values to add"/>
- *   <output icon="sum.svg" description="Sum of the input values"/>
- * </block>
+ * Sum
+ * @brief Computes the sum of the input values
+ * @image sum.svg
  */
-class SumF64 : public Aggregate<F64> {
+template <typename I = AggregateInput<F64>, typename O = SumF64Output>
+class SumF64 : public Aggregate<I, O> {
  public:
-  explicit SumF64(u32 blockId, u32 precision = 10) : Aggregate<F64>(blockId, precision) {}
+  explicit SumF64(u32 blockId, u32 precision = 10) : Aggregate<I, O>(blockId, precision) {}
 
  protected:
   [[nodiscard]] F64 combine(F64 acc, F64 value) const override { return acc + value; }
@@ -91,177 +90,105 @@ class SumF64 : public Aggregate<F64> {
 }  // namespace transformers
 
 /**
- * <namespace icon="push.sinks-ns.svg" description="Sinks"/>
+ * Sinks
+ * @brief Sinks
+ * @image push.sinks-ns.svg
  */
 namespace sinks {
 
 /**
- * <block icon="scope.svg" title="Scope" description="Displays the input values in a scope">
- *   <conf id="period" type="u32">
- *     <control type="slider" default="60" min="10" max="600" unit="s"/>
- *   </conf>
- *   <conf id="precision" type="u32">
- *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
- *   </conf>
- *   <output icon="scope.svg" description="Scope channel"/>
- * </block>
+ * Scope
+ * @brief Displays the input values in a scope
+ * @image scope.svg
  */
-class ScopeF64 : public Scope<F64> {
+template <typename I = ScopeInput, typename O = ScopeF64Output>
+class ScopeF64 : public Scope<I, O> {
  public:
-  explicit ScopeF64(u32 blockId, u32 period = 60, u32 precision = 10) : Scope<F64>(blockId, period, precision) {}
+  explicit ScopeF64(u32 blockId, u32 period = 60, u32 precision = 10) : Scope<I, O>(blockId, period, precision) {}
 };
 
 }  // namespace sinks
 
 /**
- * <namespace icon="push.sources-ns.svg" description="Sources"/>
+ * Sources
+ * @brief Sources
+ * @image push.sources-ns.svg
  */
 namespace sources {
 
 /**
- * <block icon="push.gpio_in.svg" title="GPIO Input" description="Reads the input value from a GPIO pin">
- *   <conf id="port" type="u16">
- *     <control type="text_input" format="u16hex" min="0" max="65535"/>
- *   </conf>
- *   <conf id="pins" type="array">
- *     <control type="set_of_pins">
- *       <length>
- *         <bind type="input" id="pin">
- *           <concept>
- *             <length kind="eq"/>
- *           </concept>
- *         </bind>
- *       </length>
- *       <control name="T" type="spinner" default="0" min="0" max="255"/>
- *       <implementation>the control should show a row of spinners, each spinner per pin</implementation>
- *       <implementation>the control should permit adding and removing pins</implementation>
- *       <implementation>the pin numbers should be editable</implementation>
- *       <implementation>the pin numbers should be unique and sorted ascending</implementation>
- *     </control>
- *   </conf>
- *   <input icon="push.gpio_in.svg" description="Reads one configured GPIO pin">
- *     <concept>
- *       <length>
- *         <bind type="conf" id="pins">
- *           <control>
- *             <length kind="eq"/>
- *           </control>
- *         </bind>
- *       </length>
- *     </concept>
- *   </input>
- * </block>
+ * GPIO Input
+ * @brief Reads the input value from a GPIO pin
+ * @image push.gpio_in.svg
  */
-class GpioInF64 : public GpioIn<F64> {
+template <typename I = GpioInput<F64>, typename O = void>
+class GpioInF64 : public GpioIn<I, O> {
  public:
-  explicit GpioInF64(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<F64>(blockId, port, move(pins)) {}
+  explicit GpioInF64(u32 blockId, u16 port = 0, Array<u8> pins = {0}) : GpioIn<I, O>(blockId, port, move(pins)) {}
 };
 
 /**
- * <block icon="push.const.svg" title="Constant" description="Constant value">
- *   <implementation>the implementation should propagate the constant value across all streams</implementation>
- *   <conf id="v" type="f64">
- *     <control type="text_input" format="f64" default="1">
- *       <implementation>the control should be able to define a constant value</implementation>
- *     </control>
- *   </conf>
- *   <input icon="push.const.svg" description="Streams that receive the constant value"/>
- * </block>
+ * Constant
+ * @brief Constant value
+ * @image push.const.svg
  */
-class ConstF64 : public Constant<F64> {
+template <typename I = DownstreamInput<F64>, typename O = void>
+class ConstF64 : public Constant<I, O> {
  public:
-  explicit ConstF64(u32 blockId, F64 v = 1) : Constant<F64>(blockId, v) {}
+  explicit ConstF64(u32 blockId, F64 v = 1) : Constant<I, O>(blockId, v) {}
 };
 
 /**
- * <block icon="push.cos-gen.svg" title="cos" description="Cosine generator">
- *   <conf id="precision" type="u32">
- *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
- *   </conf>
- *   <conf id="frequency" type="f64">
- *     <control type="text_input" default="1" min="0.001" max="100" format="f64" unit="Hz"/>
- *   </conf>
- *   <conf id="amplitude" type="f64">
- *     <control type="text_input" default="1" format="f64"/>
- *   </conf>
- *   <conf id="phase" type="f64">
- *     <control type="text_input" default="0" format="f64" unit="Radians"/>
- *   </conf>
- *   <input icon="push.cos-gen.svg" description="Streams that receive the cosine wave"/>
- * </block>
+ * cos
+ * @brief Cosine generator
+ * @image push.cos-gen.svg
  */
-class CosGenF64 : public WaveGen<F64> {
+template <typename I = DownstreamInput<F64>, typename O = void>
+class CosGenF64 : public WaveGen<I, O> {
  public:
   explicit CosGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
-      : WaveGen<F64>(blockId, precision, frequency, amplitude, phase) {}
+      : WaveGen<I, O>(blockId, precision, frequency, amplitude, phase) {}
 
  protected:
   [[nodiscard]] F64 wave(F64 angle) const override { return math::cos(angle); }
 };
 
 /**
- * <block icon="push.sin-gen.svg" title="sin" description="Sine generator">
- *   <conf id="precision" type="u32">
- *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
- *   </conf>
- *   <conf id="frequency" type="f64">
- *     <control type="text_input" default="1" min="0.001" max="100" format="f64" unit="Hz"/>
- *   </conf>
- *   <conf id="amplitude" type="f64">
- *     <control type="text_input" default="1" format="f64"/>
- *   </conf>
- *   <conf id="phase" type="f64">
- *     <control type="text_input" default="0" format="f64" unit="Radians"/>
- *   </conf>
- *   <input icon="push.sin-gen.svg" description="Streams that receive the sine wave"/>
- * </block>
+ * sin
+ * @brief Sine generator
+ * @image push.sin-gen.svg
  */
-class SinGenF64 : public WaveGen<F64> {
+template <typename I = DownstreamInput<F64>, typename O = void>
+class SinGenF64 : public WaveGen<I, O> {
  public:
   explicit SinGenF64(u32 blockId, u32 precision = 10, F64 frequency = 1, F64 amplitude = 1, F64 phase = 0)
-      : WaveGen<F64>(blockId, precision, frequency, amplitude, phase) {}
+      : WaveGen<I, O>(blockId, precision, frequency, amplitude, phase) {}
 
  protected:
   [[nodiscard]] F64 wave(F64 angle) const override { return math::sin(angle); }
 };
 
 /**
- * <block icon="push.rand-gen.svg" title="Random" description="Random generator">
- *   <conf id="precision" type="u32">
- *     <control type="slider" default="10" min="1" max="1000" unit="ms"/>
- *   </conf>
- *   <conf id="amplitude" type="f64">
- *     <control type="text_input" default="1" format="f64"/>
- *   </conf>
- *   <input icon="push.rand-gen.svg" description="Streams that receive the random value"/>
- * </block>
+ * Random
+ * @brief Random generator
+ * @image push.rand-gen.svg
  */
-class RandGenF64 : public RandGen<F64> {
+template <typename I = DownstreamInput<F64>, typename O = void>
+class RandGenF64 : public RandGen<I, O> {
  public:
-  explicit RandGenF64(u32 blockId, u32 precision = 10, F64 amplitude = 1) : RandGen<F64>(blockId, precision, amplitude) {}
+  explicit RandGenF64(u32 blockId, u32 precision = 10, F64 amplitude = 1) : RandGen<I, O>(blockId, precision, amplitude) {}
 };
 
 /**
- * <block icon="push.pulse-gen.svg" title="Pulse" description="Pulse signal generator">
- *   <conf id="duty_cycle" type="f64">
- *     <control type="slider" default="0.5" min="0.0" max="1.0" step="0.01"/>
- *   </conf>
- *   <conf id="amplitude" type="f64">
- *     <control type="text_input" default="1" format="f64"/>
- *   </conf>
- *   <conf id="frequency" type="f64">
- *     <control type="text_input" default="1" min="0.001" max="100" format="f64" unit="Hz"/>
- *   </conf>
- *   <conf id="phase" type="f64">
- *     <control type="text_input" default="0" format="f64" unit="Radians"/>
- *   </conf>
- *   <input icon="push.pulse-gen.svg" description="Streams that receive the pulse"/>
- * </block>
+ * Pulse
+ * @brief Pulse signal generator
+ * @image push.pulse-gen.svg
  */
-class PulseGenF64 : public PulseGen<F64> {
+template <typename I = DownstreamInput<F64>, typename O = void>
+class PulseGenF64 : public PulseGen<I, O> {
  public:
   explicit PulseGenF64(u32 blockId, F64 dutyCycle = 0.5, F64 amplitude = 1, F64 frequency = 1, F64 phase = 0)
-      : PulseGen<F64>(blockId, dutyCycle, amplitude, frequency, phase) {}
+      : PulseGen<I, O>(blockId, dutyCycle, amplitude, frequency, phase) {}
 };
 
 }  // namespace sources

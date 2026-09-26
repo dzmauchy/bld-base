@@ -33,7 +33,7 @@ constexpr f32 kEps = 1e-5f;
 TEST_SUITE("ScopeF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotReportAValueBeforeAnyPush") {
     auto scope = ScopeF32(0);
-    (void)scope.apply(1);
+    (void)scope.apply({.channelCount = 1}).channels;
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -44,11 +44,11 @@ TEST_SUITE("ScopeF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "ChannelsAreIndependent") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(2);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
     auto a = ConstF32(1, 1.5f);
     auto b = ConstF32(2, 9.5f);
-    a.apply({sinks[0]});
-    b.apply({sinks[1]});
+    a.apply({.downstream = {sinks[0]}});
+    b.apply({.downstream = {sinks[1]}});
 
     MockRuntime::start();
 
@@ -67,9 +67,9 @@ TEST_SUITE("ScopeF32") {
 TEST_SUITE("ConstF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "PushesValueToScope") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto constant = ConstF32(1, 3.5f);
-    constant.apply(sinks);
+    constant.apply({.downstream = sinks});
 
     MockRuntime::start();
 
@@ -78,9 +78,9 @@ TEST_SUITE("ConstF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "FansOutToTwoScopeChannels") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(2);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
     auto constant = ConstF32(1, 8.f);
-    constant.apply(sinks);
+    constant.apply({.downstream = sinks});
 
     MockRuntime::start();
 
@@ -92,7 +92,7 @@ TEST_SUITE("ConstF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotRegisterAnInterval") {
     auto constant = ConstF32(1, 9.f);
-    constant.apply({});
+    constant.apply({.downstream = {}});
 
     MockRuntime::start();
 
@@ -103,11 +103,11 @@ TEST_SUITE("ConstF32") {
 TEST_SUITE("UnaryTransformers") {
   TEST_CASE_FIXTURE(BlocksFixture, "CosOfZeroIsOne") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto cos = CosF32(1);
-    auto input = cos.apply(sinks);
+    auto input = cos.apply({.downstream = sinks}).consumer;
     auto constant = ConstF32(2, 0.f);
-    constant.apply({input});
+    constant.apply({.downstream = {input}});
 
     MockRuntime::start();
 
@@ -116,11 +116,11 @@ TEST_SUITE("UnaryTransformers") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "SinOfZeroIsZero") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto sin = SinF32(1);
-    auto input = sin.apply(sinks);
+    auto input = sin.apply({.downstream = sinks}).consumer;
     auto constant = ConstF32(2, 0.f);
-    constant.apply({input});
+    constant.apply({.downstream = {input}});
 
     MockRuntime::start();
 
@@ -129,13 +129,13 @@ TEST_SUITE("UnaryTransformers") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "CosThenSinOfZeroIsSinOfOne") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto sin = SinF32(1);
     auto cos = CosF32(2);
-    auto sinInput = sin.apply(sinks);
-    auto cosInput = cos.apply({sinInput});
+    auto sinInput = sin.apply({.downstream = sinks}).consumer;
+    auto cosInput = cos.apply({.downstream = {sinInput}}).consumer;
     auto constant = ConstF32(3, 0.f);
-    constant.apply({cosInput});
+    constant.apply({.downstream = {cosInput}});
 
     MockRuntime::start();
 
@@ -146,13 +146,13 @@ TEST_SUITE("UnaryTransformers") {
 TEST_SUITE("ProductF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "MultipliesTwoConstants") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto product = ProductF32(1);
-    auto inputs = product.apply(sinks,2);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto a = ConstF32(2, 3.f);
     auto b = ConstF32(3, 4.f);
-    a.apply({inputs[0]});
-    b.apply({inputs[1]});
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -163,11 +163,11 @@ TEST_SUITE("ProductF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "SingleFactorIsTheProduct") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto product = ProductF32(1);
-    auto inputs = product.apply(sinks,1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 1}).channels;
     auto a = ConstF32(2, 6.f);
-    a.apply({inputs[0]});
+    a.apply({.downstream = {inputs[0]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -177,11 +177,11 @@ TEST_SUITE("ProductF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotPushWhenAFactorIsNaN") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto product = ProductF32(1);
-    auto inputs = product.apply(sinks,2);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto a = ConstF32(2, 6.f);
-    a.apply({inputs[0]});
+    a.apply({.downstream = {inputs[0]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -191,7 +191,7 @@ TEST_SUITE("ProductF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "UsesConfiguredPrecision") {
     auto product = ProductF32(1, 25);
-    (void)product.apply({},1);
+    (void)product.apply({.downstream = {}, .channelCount = 1}).channels;
 
     MockRuntime::start();
 
@@ -202,13 +202,13 @@ TEST_SUITE("ProductF32") {
 TEST_SUITE("SumF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "AddsTwoConstants") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto sum = SumF32(1);
-    auto inputs = sum.apply(sinks,2);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto a = ConstF32(2, 3.f);
     auto b = ConstF32(3, 4.f);
-    a.apply({inputs[0]});
-    b.apply({inputs[1]});
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -218,13 +218,13 @@ TEST_SUITE("SumF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "DoesNotPushWhenATermIsNonFinite") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto sum = SumF32(1);
-    auto inputs = sum.apply(sinks,2);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto a = ConstF32(2, 6.f);
     auto b = ConstF32(3, std::numeric_limits<f32>::infinity());
-    a.apply({inputs[0]});
-    b.apply({inputs[1]});
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -236,9 +236,9 @@ TEST_SUITE("SumF32") {
 TEST_SUITE("WaveGenerators") {
   TEST_CASE_FIXTURE(BlocksFixture, "CosGenAtZeroIsOne") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gen = CosGenF32(1);
-    gen.apply(sinks);
+    gen.apply({.downstream = sinks});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -249,9 +249,9 @@ TEST_SUITE("WaveGenerators") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "SinGenAtZeroIsZero") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gen = SinGenF32(1);
-    gen.apply(sinks);
+    gen.apply({.downstream = sinks});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -262,9 +262,9 @@ TEST_SUITE("WaveGenerators") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "SinGenAtQuarterPeriodIsOne") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gen = SinGenF32(1);
-    gen.apply(sinks);
+    gen.apply({.downstream = sinks});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -276,7 +276,7 @@ TEST_SUITE("WaveGenerators") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "CosGenUsesConfiguredPrecision") {
     auto gen = CosGenF32(1, 25);
-    gen.apply({});
+    gen.apply({.downstream = {}});
 
     MockRuntime::start();
 
@@ -286,7 +286,7 @@ TEST_SUITE("WaveGenerators") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "OnCloseClearsGeneratorInterval") {
     auto gen = CosGenF32(1);
-    gen.apply({});
+    gen.apply({.downstream = {}});
 
     MockRuntime::start();
     CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
@@ -298,9 +298,9 @@ TEST_SUITE("WaveGenerators") {
 TEST_SUITE("RandGenF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "UsesInjectedRandomScaledByAmplitude") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gen = RandGenF32(1, 10, 2.f);
-    gen.apply(sinks);
+    gen.apply({.downstream = sinks});
 
     MockRuntime::setRandom(0.25f);
     MockRuntime::start();
@@ -313,9 +313,9 @@ TEST_SUITE("RandGenF32") {
 TEST_SUITE("PulseGenF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "HighAtStartOfPeriod") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gen = PulseGenF32(1, 0.5f);
-    gen.apply(sinks);
+    gen.apply({.downstream = sinks});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -326,9 +326,9 @@ TEST_SUITE("PulseGenF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "LowAfterDutyWindow") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gen = PulseGenF32(1, 0.5f);
-    gen.apply(sinks);
+    gen.apply({.downstream = sinks});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -340,7 +340,7 @@ TEST_SUITE("PulseGenF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "UsesOneMillisecondInterval") {
     auto gen = PulseGenF32(1);
-    gen.apply({});
+    gen.apply({.downstream = {}});
 
     MockRuntime::start();
 
@@ -351,10 +351,9 @@ TEST_SUITE("PulseGenF32") {
 TEST_SUITE("GpioInF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "TrueIsOneOnScope") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gpio = GpioInF32(1, 0, {0});
-    gpio.connectPin(0, sinks);
-    gpio.apply();
+    gpio.apply({.pins = {sinks}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(0, 0, true);
@@ -364,10 +363,9 @@ TEST_SUITE("GpioInF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "FalseIsZeroOnScope") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gpio = GpioInF32(1);
-    gpio.connectPin(0, sinks);
-    gpio.apply();
+    gpio.apply({.pins = {sinks}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(0, 0, false);
@@ -377,11 +375,9 @@ TEST_SUITE("GpioInF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "IgnoresUnconfiguredPins") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gpio = GpioInF32(1, 0, {2, 4});
-    gpio.connectPin(0, sinks);
-    gpio.connectPin(1, {});
-    gpio.apply();
+    gpio.apply({.pins = {sinks, {}}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(0, 0, true);
@@ -391,11 +387,9 @@ TEST_SUITE("GpioInF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "RoutesMultiplePins") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(2);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
     auto gpio = GpioInF32(1, 7, {1, 3});
-    gpio.connectPin(0, {sinks[0]});
-    gpio.connectPin(1, {sinks[1]});
-    gpio.apply();
+    gpio.apply({.pins = {{sinks[0]}, {sinks[1]}}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(7, 1, true);
@@ -407,10 +401,9 @@ TEST_SUITE("GpioInF32") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "OnCloseStopsListening") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto gpio = GpioInF32(1);
-    gpio.connectPin(0, sinks);
-    gpio.apply();
+    gpio.apply({.pins = {sinks}});
 
     MockRuntime::start();
     CHECK_EQ(MockRuntime::activeGpioCount(), 1);
@@ -424,13 +417,13 @@ TEST_SUITE("GpioInF32") {
 TEST_SUITE("CompositeDiagrams") {
   TEST_CASE_FIXTURE(BlocksFixture, "CosTimesSinAtQuarterPeriod") {
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto product = ProductF32(1);
-    auto factors = product.apply(sinks,2);
+    auto factors = product.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto cos = CosGenF32(2);
     auto sin = SinGenF32(3);
-    cos.apply({factors[0]});
-    sin.apply({factors[1]});
+    cos.apply({.downstream = {factors[0]}});
+    sin.apply({.downstream = {factors[1]}});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -444,14 +437,14 @@ TEST_SUITE("CompositeDiagrams") {
   TEST_CASE_FIXTURE(BlocksFixture, "EachBlockOwnsItsCapturedCallbacks") {
     constexpr auto kCount = u8{70};
     auto scope = ScopeF32(0);
-    auto sinks = scope.apply(kCount);
-    auto constants = std::vector<ConstF32>{};
+    auto sinks = scope.apply({.channelCount = kCount}).channels;
+    auto constants = std::vector<ConstF32<>>{};
     constants.reserve(kCount);
     for (auto i : std::views::iota(u8{}, kCount)) {
       constants.emplace_back(static_cast<u32>(i) + 1, static_cast<f32>(i));
     }
     for (auto i : std::views::iota(u8{}, kCount)) {
-      constants[i].apply({sinks[i]});
+      constants[i].apply({.downstream = {sinks[i]}});
     }
 
     MockRuntime::start();

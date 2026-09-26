@@ -2,6 +2,11 @@
 
 #include <core/types.hpp>
 
+/**
+ * Function
+ * @brief A callable that returns R from its argument values.
+ * @image function.svg
+ */
 template <typename R, typename... Args>
 class Function {
  public:
@@ -9,11 +14,21 @@ class Function {
   virtual R operator()(Args... args) = 0;
 };
 
+/**
+ * Callback
+ * @brief A callback with no arguments.
+ * @image consumer.svg
+ */
 class Callback : public Consumer<> {
  public:
   ~Callback() override = default;
 };
 
+/**
+ * MemberCallback
+ * @brief Invokes a callback method on an existing object.
+ * @image consumer.svg
+ */
 template <typename Target, void (Target::*Method)()>
 class MemberCallback final : public Callback {
  public:
@@ -24,6 +39,11 @@ class MemberCallback final : public Callback {
   Target* target_;
 };
 
+/**
+ * MemberConsumer
+ * @brief Forwards one consumed value to an object method.
+ * @image consumer.svg
+ */
 template <typename Target, typename T, void (Target::*Method)(T)>
 class MemberConsumer final : public Consumer<T> {
  public:
@@ -34,6 +54,11 @@ class MemberConsumer final : public Consumer<T> {
   Target* target_;
 };
 
+/**
+ * IndexedMemberConsumer
+ * @brief Forwards a consumed value and channel index to an object method.
+ * @image consumer.svg
+ */
 template <typename Target, typename T, void (Target::*Method)(u8, T)>
 class IndexedMemberConsumer final : public Consumer<T> {
  public:

@@ -29,9 +29,9 @@ struct BlocksFixture {
 TEST_SUITE("f64 blocks") {
   TEST_CASE_FIXTURE(BlocksFixture, "ConstFansOut") {
     auto scope = ScopeF64(0);
-    auto sinks = scope.apply(2);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
     auto constant = ConstF64(1, 8.0);
-    constant.apply(sinks);
+    constant.apply({.downstream = sinks});
 
     MockRuntime::start();
 
@@ -42,13 +42,13 @@ TEST_SUITE("f64 blocks") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "CosThenSin") {
     auto scope = ScopeF64(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto sin = SinF64(1);
     auto cos = CosF64(2);
-    auto sinInput = sin.apply(sinks);
-    auto cosInput = cos.apply({sinInput});
+    auto sinInput = sin.apply({.downstream = sinks}).consumer;
+    auto cosInput = cos.apply({.downstream = {sinInput}}).consumer;
     auto constant = ConstF64(3, 0.0);
-    constant.apply({cosInput});
+    constant.apply({.downstream = {cosInput}});
 
     MockRuntime::start();
 
@@ -57,15 +57,15 @@ TEST_SUITE("f64 blocks") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "ProductAndSum") {
     auto scope = ScopeF64(0);
-    auto sinks = scope.apply(2);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
     auto product = ProductF64(1, 25);
     auto sum = SumF64(2);
-    auto factors = product.apply({sinks[0]}, 2);
-    auto terms = sum.apply({sinks[1]}, 2);
+    auto factors = product.apply({.downstream = {sinks[0]}, .channelCount = 2}).channels;
+    auto terms = sum.apply({.downstream = {sinks[1]}, .channelCount = 2}).channels;
     auto a = ConstF64(3, 3.0);
     auto b = ConstF64(4, 4.0);
-    a.apply({factors[0], terms[0]});
-    b.apply({factors[1], terms[1]});
+    a.apply({.downstream = {factors[0], terms[0]}});
+    b.apply({.downstream = {factors[1], terms[1]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -77,13 +77,13 @@ TEST_SUITE("f64 blocks") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "SumSkipsNonFinite") {
     auto scope = ScopeF64(0);
-    auto sinks = scope.apply(1);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
     auto sum = SumF64(1);
-    auto inputs = sum.apply(sinks, 2);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto a = ConstF64(2, 6.0);
     auto b = ConstF64(3, std::numeric_limits<f64>::infinity());
-    a.apply({inputs[0]});
-    b.apply({inputs[1]});
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
 
     MockRuntime::start();
     MockRuntime::tick();
@@ -93,13 +93,13 @@ TEST_SUITE("f64 blocks") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "WaveAndPulse") {
     auto scope = ScopeF64(0);
-    auto sinks = scope.apply(3);
+    auto sinks = scope.apply({.channelCount = 3}).channels;
     auto cos = CosGenF64(1);
     auto sin = SinGenF64(2);
     auto pulse = PulseGenF64(3, 0.5);
-    cos.apply({sinks[0]});
-    sin.apply({sinks[1]});
-    pulse.apply({sinks[2]});
+    cos.apply({.downstream = {sinks[0]}});
+    sin.apply({.downstream = {sinks[1]}});
+    pulse.apply({.downstream = {sinks[2]}});
 
     MockRuntime::setNow(0);
     MockRuntime::start();
@@ -121,12 +121,11 @@ TEST_SUITE("f64 blocks") {
 
   TEST_CASE_FIXTURE(BlocksFixture, "RandomAndGpio") {
     auto scope = ScopeF64(0);
-    auto sinks = scope.apply(2);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
     auto rand = RandGenF64(1, 10, 2.0);
     auto gpio = GpioInF64(2, 7, {1});
-    rand.apply({sinks[0]});
-    gpio.connectPin(0, {sinks[1]});
-    gpio.apply();
+    rand.apply({.downstream = {sinks[0]}});
+    gpio.apply({.pins = {{sinks[1]}}});
 
     MockRuntime::setRandom(0.25f);
     MockRuntime::start();

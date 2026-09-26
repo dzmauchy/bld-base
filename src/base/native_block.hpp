@@ -4,15 +4,25 @@
 #include <core/block.hpp>
 #include <core/callback.hpp>
 #include <core/hal.hpp>
-#include <core/maybe.hpp>
 #include <core/move.hpp>
 
-class NativeBlock : public Block {
+/**
+ * NativeBlock
+ * @brief A typed block with access to native runtime services.
+ * @image block.svg
+ */
+template <typename I, typename O>
+class NativeBlock : public Block<I, O> {
  public:
-  using Block::Block;
+  using Block<I, O>::Block;
   ~NativeBlock() override = default;
 
  protected:
+  /**
+   * ClearIntervalCallback
+   * @brief Clears a runtime interval when invoked.
+   * @image consumer.svg
+   */
   class ClearIntervalCallback final : public Callback {
    public:
     explicit ClearIntervalCallback(u32 timer) : timer_(timer) {}
@@ -22,6 +32,11 @@ class NativeBlock : public Block {
     u32 timer_;
   };
 
+  /**
+   * ClearGpioHandlesCallback
+   * @brief Clears the owned GPIO listener handles when invoked.
+   * @image consumer.svg
+   */
   class ClearGpioHandlesCallback final : public Callback {
    public:
     explicit ClearGpioHandlesCallback(Array<u32> handles) : handles_(move(handles)) {}
@@ -53,8 +68,8 @@ class NativeBlock : public Block {
     onClose(*closeSlot);
   }
 
-  void sendValue(u8 channel, f32 value) const { send_value_f32(blockId, channel, value); }
-  void sendValue(u8 channel, f64 value) const { send_value_f64(blockId, channel, value); }
+  void sendValue(u8 channel, f32 value) const { send_value_f32(this->blockId, channel, value); }
+  void sendValue(u8 channel, f64 value) const { send_value_f64(this->blockId, channel, value); }
 
   static void pushTo(const auto& sinks, auto value) {
     for (auto* sink : sinks) {

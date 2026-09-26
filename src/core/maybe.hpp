@@ -1,9 +1,13 @@
 #pragma once
 
+#include <core/move.hpp>
 #include <new>
 
-#include <core/move.hpp>
-
+/**
+ * Maybe
+ * @brief Optional owned storage for a value.
+ * @image type.svg
+ */
 template <typename T>
 class Maybe {
  public:

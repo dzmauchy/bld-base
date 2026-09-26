@@ -49,19 +49,13 @@ if(BASE_BUILD_TESTS)
 
   add_executable(base_tests
     tests/mock_runtime.cpp
+    tests/unit/test_block_contract.cpp
     tests/unit/test_blocks.cpp
     tests/unit/test_blocks_f64.cpp
+    tests/unit/test_host_bindings.cpp
   )
   target_link_libraries(base_tests PRIVATE base doctest::doctest)
   set_source_files_properties(tests/unit/test_blocks.cpp PROPERTIES COMPILE_DEFINITIONS DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN)
-
-  # Platform hosts are headers. Compile each one once; do not link them into the tests.
-  set_source_files_properties(src/browser/host.hpp src/mcu/hal.hpp PROPERTIES LANGUAGE CXX HEADER_FILE_ONLY FALSE COMPILE_OPTIONS "-Wno-pragma-once-outside-header")
-  add_library(base_browser_host OBJECT src/browser/host.hpp)
-  target_link_libraries(base_browser_host PRIVATE base)
-
-  add_library(base_mcu_hal OBJECT src/mcu/hal.hpp)
-  target_link_libraries(base_mcu_hal PRIVATE base)
 
   include(CTest)
   add_test(NAME base_tests COMMAND base_tests)
