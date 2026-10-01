@@ -98,6 +98,18 @@ TEST_SUITE("ConstF32") {
 
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "SkipsNullConsumersAndContinuesFanout") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
+    auto constant = ConstF32(1, 4.f);
+    constant.apply({.downstream = {nullptr, sinks[0], nullptr, sinks[1]}});
+
+    MockRuntime::start();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 4.f);
+  }
 }
 
 TEST_SUITE("UnaryTransformers") {
@@ -197,6 +209,89 @@ TEST_SUITE("ProductF32") {
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PushesZeroWhenAFactorIsZero") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF32(1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, 0.f);
+    auto b = ConstF32(3, 4.f);
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::hasF32(0, 0));
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DoesNotPushWhenTheProductOverflows") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF32(1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, 1e20f);
+    auto b = ConstF32(3, 1e20f);
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "UsesTheLatestFactorBeforeTheTick") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF32(1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, 3.f);
+    auto b = ConstF32(3, 4.f);
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+
+    MockRuntime::start();
+    (*inputs[0])(10.f);
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 40.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PushesOnceAMissingFactorArrives") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF32(1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, 3.f);
+    a.apply({.downstream = {inputs[0]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+
+    (*inputs[1])(4.f);
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "EmptyChannelCountDoesNotPush") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF32(1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 0}).channels;
+    CHECK(inputs.empty());
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+    MockRuntime::close();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  }
 }
 
 TEST_SUITE("SumF32") {
@@ -223,6 +318,56 @@ TEST_SUITE("SumF32") {
     auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
     auto a = ConstF32(2, 6.f);
     auto b = ConstF32(3, std::numeric_limits<f32>::infinity());
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DoesNotPushWhenATermIsNaN") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto sum = SumF32(1);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, 6.f);
+    auto b = ConstF32(3, std::numeric_limits<f32>::quiet_NaN());
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "AddsNegativeAndZeroTerms") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto sum = SumF32(1);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 3}).channels;
+    auto a = ConstF32(2, 3.f);
+    auto b = ConstF32(3, -5.f);
+    auto c = ConstF32(4, 0.f);
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+    c.apply({.downstream = {inputs[2]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -2.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DoesNotPushWhenTheSumOverflows") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto sum = SumF32(1);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, std::numeric_limits<f32>::max());
+    auto b = ConstF32(3, std::numeric_limits<f32>::max());
     a.apply({.downstream = {inputs[0]}});
     b.apply({.downstream = {inputs[1]}});
 
@@ -293,6 +438,33 @@ TEST_SUITE("WaveGenerators") {
     MockRuntime::close();
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "CosGenScalesAmplitudeAndAppliesPhase") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = CosGenF32(1, 10, 1.f, 2.f, math::kTwoPi<f32> / 2.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(-2.f).epsilon(1e-4f));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "SinGenFrequencyDoublesTheAngularRate") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = SinGenF32(1, 10, 2.f, 1.f, 0.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::setNow(125);
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(1.f).epsilon(1e-4f));
+  }
 }
 
 TEST_SUITE("RandGenF32") {
@@ -345,6 +517,79 @@ TEST_SUITE("PulseGenF32") {
     MockRuntime::start();
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DutyZeroStaysLowAndDutyOneStaysHigh") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
+    auto low = PulseGenF32(1, 0.f, 5.f);
+    auto high = PulseGenF32(2, 1.f, 5.f);
+    low.apply({.downstream = {sinks[0]}});
+    high.apply({.downstream = {sinks[1]}});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::setNow(500);
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 5.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NegativePhaseWrapsIntoTheCycle") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = PulseGenF32(1, 0.5f, 3.f, 1.f, -math::kTwoPi<f32> / 2.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PhaseBeyondOneTurnWrapsBeforeTheDutyCompare") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = PulseGenF32(1, 0.5f, 3.f, 1.f, math::kTwoPi<f32> * 1.25f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 3.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DoubledFrequencyHalvesTheHighWindow") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = PulseGenF32(1, 0.5f, 4.f, 2.f, 0.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4.f);
+
+    MockRuntime::setNow(250);
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NextPeriodStartsHighAgain") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = PulseGenF32(1, 0.5f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::setNow(1000);
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
   }
 }
 
@@ -411,6 +656,72 @@ TEST_SUITE("GpioInF32") {
     CHECK_EQ(MockRuntime::activeGpioCount(), 0);
     MockRuntime::emitGpio(0, 0, true);
     CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "CapsListenersAtEightPins") {
+    constexpr auto count = u8{9};
+    auto           scope = ScopeF32(0);
+    auto           sinks = scope.apply({.channelCount = count}).channels;
+    auto           gpio = GpioInF32(1, 0, {10, 11, 12, 13, 14, 15, 16, 17, 18});
+    auto           groups = Array<Vectorized<Consumer<f32>>>{};
+    for (auto pin : std::views::iota(u8{}, count)) {
+      groups.push_back({sinks[pin]});
+    }
+    gpio.apply({.pins = move(groups)});
+
+    MockRuntime::start();
+    CHECK_EQ(MockRuntime::activeGpioCount(), GpioInF32::kMaxPins);
+    MockRuntime::emitGpio(0, 17, true);
+    MockRuntime::emitGpio(0, 18, true);
+
+    CHECK_EQ(MockRuntime::lastF32(0, 7), 1.f);
+    CHECK_FALSE(MockRuntime::hasF32(0, 8));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DuplicatePinUpdatesOnlyTheFirstConnectedGroup") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
+    auto gpio = GpioInF32(1, 0, {2, 2});
+    gpio.apply({.pins = {{sinks[0]}, {sinks[1]}}});
+
+    MockRuntime::start();
+    MockRuntime::emitGpio(0, 2, true);
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    CHECK_FALSE(MockRuntime::hasF32(0, 1));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "IgnoresPinsBeyondTheConnectedGroups") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gpio = GpioInF32(1, 0, {1, 2, 3});
+    gpio.apply({.pins = {sinks}});
+
+    MockRuntime::start();
+    MockRuntime::emitGpio(0, 1, true);
+    MockRuntime::emitGpio(0, 2, false);
+    MockRuntime::emitGpio(0, 3, true);
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PortEventsDoNotCross") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
+    auto portA = GpioInF32(1, 1, {0});
+    auto portB = GpioInF32(2, 2, {0});
+    portA.apply({.pins = {{sinks[0]}}});
+    portB.apply({.pins = {{sinks[1]}}});
+
+    MockRuntime::start();
+    MockRuntime::emitGpio(1, 0, true);
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    CHECK_FALSE(MockRuntime::hasF32(0, 1));
+
+    MockRuntime::emitGpio(2, 0, false);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
   }
 }
 
