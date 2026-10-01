@@ -52,6 +52,7 @@ if(BASE_BUILD_TESTS)
     tests/unit/test_block_contract.cpp
     tests/unit/test_blocks.cpp
     tests/unit/test_blocks_f64.cpp
+    tests/unit/test_core.cpp
     tests/unit/test_host_bindings.cpp
   )
   target_link_libraries(base_tests PRIVATE base doctest::doctest)
