@@ -91,6 +91,39 @@ TEST_SUITE("f64 blocks") {
     CHECK_FALSE(MockRuntime::hasF64(0, 0));
   }
 
+  TEST_CASE_FIXTURE(BlocksFixture, "ProductFoldsThreeSignedFactorsAndKeepsTheLastFiniteResult") {
+    auto scope = ScopeF64(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF64(1);
+    auto inputs = product.apply({.downstream = sinks, .channelCount = 3}).channels;
+    auto a = ConstF64(2, -2.0);
+    auto b = ConstF64(3, 3.0);
+    auto c = ConstF64(4, 0.5);
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+    c.apply({.downstream = {inputs[2]}});
+
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF64(0, 0), -3.0);
+
+    (*inputs[2])(std::numeric_limits<f64>::quiet_NaN());
+    MockRuntime::tick();
+    CHECK(MockRuntime::hasF64(0, 0));
+    CHECK_EQ(MockRuntime::lastF64(0, 0), -3.0);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "CosForwardsNonFiniteValues") {
+    auto scope = ScopeF64(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto cos = CosF64(1);
+    auto input = cos.apply({.downstream = sinks}).consumer;
+    (*input)(std::numeric_limits<f64>::quiet_NaN());
+
+    CHECK(MockRuntime::hasF64(0, 0));
+    CHECK(std::isnan(MockRuntime::lastF64(0, 0)));
+  }
+
   TEST_CASE_FIXTURE(BlocksFixture, "WaveAndPulse") {
     auto scope = ScopeF64(0);
     auto sinks = scope.apply({.channelCount = 3}).channels;
