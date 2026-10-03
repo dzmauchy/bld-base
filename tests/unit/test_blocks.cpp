@@ -28,6 +28,17 @@ struct BlocksFixture {
 
 constexpr f32 kEps = 1e-5f;
 
+class CountingF32 final : public Consumer<f32> {
+public:
+  void operator()(f32 value) override {
+    ++count;
+    last = value;
+  }
+
+  u32 count{0};
+  f32 last{};
+};
+
 } // namespace
 
 TEST_SUITE("ScopeF32") {
@@ -197,6 +208,47 @@ TEST_SUITE("ProductF32") {
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PublishesLatchedFactorsOnEveryTickUntilClose") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto product = ProductF32(1);
+    auto count = CountingF32{};
+    auto inputs = product.apply({.downstream = {&count, sinks[0]}, .channelCount = 2}).channels;
+    (*inputs[0])(-3.f);
+    (*inputs[1])(-4.f);
+
+    CHECK_EQ(count.count, 0);
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+
+    MockRuntime::start();
+    CHECK_EQ(count.count, 0);
+
+    MockRuntime::tick();
+    CHECK_EQ(count.count, 1);
+    CHECK_EQ(count.last, 12.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
+
+    (*inputs[0])(5.f);
+    CHECK_EQ(count.count, 1);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
+
+    MockRuntime::tick();
+    CHECK_EQ(count.count, 2);
+    CHECK_EQ(count.last, -20.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -20.f);
+
+    MockRuntime::tick();
+    CHECK_EQ(count.count, 3);
+    CHECK_EQ(count.last, -20.f);
+
+    MockRuntime::close();
+    (*inputs[1])(1.f);
+    MockRuntime::tick();
+    CHECK_EQ(count.count, 3);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -20.f);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  }
 }
 
 TEST_SUITE("SumF32") {
@@ -230,6 +282,24 @@ TEST_SUITE("SumF32") {
     MockRuntime::tick();
 
     CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PushesAnExactZeroSum") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto sum = SumF32(1);
+    auto inputs = sum.apply({.downstream = sinks, .channelCount = 2}).channels;
+    auto a = ConstF32(2, 3.f);
+    auto b = ConstF32(3, -3.f);
+    a.apply({.downstream = {inputs[0]}});
+    b.apply({.downstream = {inputs[1]}});
+
+    MockRuntime::start();
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::hasF32(0, 0));
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
   }
 }
 
@@ -293,6 +363,33 @@ TEST_SUITE("WaveGenerators") {
     MockRuntime::close();
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NegativeFrequencyInvertsSine") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = SinGenF32(1, 10, -1.f, 1.f, 0.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::setNow(250);
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(-1.f).epsilon(1e-4f));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NegativeAmplitudeFlipsCosine") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = CosGenF32(1, 10, 1.f, -2.f, 0.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(-2.f).epsilon(1e-4f));
+  }
 }
 
 TEST_SUITE("RandGenF32") {
@@ -307,6 +404,32 @@ TEST_SUITE("RandGenF32") {
     MockRuntime::tick();
 
     CHECK_EQ(MockRuntime::lastF32(0, 0), 0.5f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ResamplesSignedAmplitudeAtTheConfiguredInterval") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 2}).channels;
+    auto negative = RandGenF32(1, 40, -2.f);
+    auto zero = RandGenF32(2, 40, 0.f);
+    negative.apply({.downstream = {sinks[0]}});
+    zero.apply({.downstream = {sinks[1]}});
+
+    MockRuntime::setRandom(0.25f);
+    MockRuntime::start();
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+    CHECK_FALSE(MockRuntime::hasF32(0, 1));
+    CHECK_EQ(MockRuntime::intervalPeriodAt(0), 40);
+    CHECK_EQ(MockRuntime::intervalPeriodAt(1), 40);
+
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -0.5f);
+    CHECK(MockRuntime::hasF32(0, 1));
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
+
+    MockRuntime::setRandom(0.5f);
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -1.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
   }
 }
 
@@ -345,6 +468,20 @@ TEST_SUITE("PulseGenF32") {
     MockRuntime::start();
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "StaysHighThroughTheLastMillisecondOfTheDutyWindow") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gen = PulseGenF32(1, 0.5f, 4.f);
+    gen.apply({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::setNow(499);
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4.f);
   }
 }
 
@@ -411,6 +548,31 @@ TEST_SUITE("GpioInF32") {
     CHECK_EQ(MockRuntime::activeGpioCount(), 0);
     MockRuntime::emitGpio(0, 0, true);
     CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ListensAgainAfterClose") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply({.channelCount = 1}).channels;
+    auto gpio = GpioInF32(1, 3, {1});
+    gpio.apply({.pins = {sinks}});
+
+    MockRuntime::emitGpio(3, 1, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+
+    MockRuntime::close();
+    MockRuntime::emitGpio(3, 1, false);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+
+    gpio.apply({.pins = {sinks}});
+    CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+    MockRuntime::emitGpio(3, 1, false);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+
+    MockRuntime::close();
+    MockRuntime::emitGpio(3, 1, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+    CHECK_EQ(MockRuntime::activeGpioCount(), 0);
   }
 }
 
