@@ -2,7 +2,9 @@
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
+#include <cmath>
 #include <core/hal.hpp>
+#include <core/math/trig.hpp>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -46,4 +48,21 @@ TEST_CASE_TEMPLATE("Host C bindings drive time, callbacks, GPIO and observations
   MockRuntime::close();
   CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+}
+
+TEST_CASE_TEMPLATE("Host math wrappers use the matching function", T, f32, f64) {
+  const T value = T{0.5};
+  CHECK(math::tan(value) == doctest::Approx(std::tan(value)));
+  CHECK(math::asin(value) == doctest::Approx(std::asin(value)));
+  CHECK(math::acos(value) == doctest::Approx(std::acos(value)));
+  CHECK(math::atan(T{1}) == doctest::Approx(std::atan(T{1})));
+  CHECK(math::exp(T{0}) == doctest::Approx(T{1}));
+  CHECK(math::log(T{1}) == doctest::Approx(T{0}));
+  CHECK(math::log(math::exp(T{1})) == doctest::Approx(T{1}));
+  CHECK(math::log10(T{1000}) == doctest::Approx(T{3}));
+  CHECK(math::sqrt(T{4}) == doctest::Approx(T{2}));
+  CHECK_EQ(math::ceil(T{1.2}), T{2});
+  CHECK_EQ(math::floor(T{1.2}), T{1});
+  CHECK_EQ(math::ceil(T{-1.2}), T{-1});
+  CHECK_EQ(math::floor(T{-1.2}), T{-2});
 }
