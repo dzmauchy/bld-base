@@ -25,6 +25,16 @@ public:
   const u32 intervalMs;
 
 protected:
+  /**
+   * PeriodicSource
+   * @param intervalMs Interval
+   *   Emission interval in milliseconds.
+   *   @icon timer.svg
+   *   @control number
+   *   @min 1
+   *   @max 60000
+   *   @step 1
+   */
   PeriodicSource(const u32 blockId,
                  const u32 intervalMs)
       : NativeBlock<I,
@@ -34,7 +44,7 @@ protected:
   virtual void onStarted() {}
   virtual T    sample() = 0;
 
-  Vectorized<Consumer<T>> downstream{};
+  VectorizedInput<Consumer<T>> downstream{};
 
 private:
   void handleTick() { this->pushTo(downstream, sample()); }

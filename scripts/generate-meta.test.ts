@@ -31,27 +31,39 @@ test('generates all library ports, documentation, and only the requested metadat
     assert.equal(new Set(ids).size, ids.length);
     for (const entry of entries) {
       assert.deepEqual(Object.keys(entry).sort(), category === 'blocks'
-        ? [...keys, 'inputs', 'outputs'].sort() : keys);
+        ? [...keys, 'inputs', 'outputs', 'parameters'].sort() : keys);
       for (const key of keys) assert.equal(typeof entry[key], 'string');
       for (const port of [...(entry.inputs ?? []), ...(entry.outputs ?? [])]) {
         assert.deepEqual(Object.keys(port).sort(), entryKeys);
         assert.ok(port.name && port.description && port.icon);
       }
+      for (const parameter of entry.parameters ?? []) {
+        assert.deepEqual(Object.keys(parameter).sort(), [...entryKeys, 'control'].sort());
+        assert.ok(parameter.name && parameter.description && parameter.icon);
+        assert.equal(typeof parameter.control, 'object');
+        assert.ok(parameter.control && typeof parameter.control.type === 'string');
+      }
     }
   }
   const expected = {
-    Cos: [['downstream'], ['consumer']], Sin: [['downstream'], ['consumer']],
-    Product: [['downstream', 'channelCount'], ['channels']],
-    Sum: [['downstream', 'channelCount'], ['channels']],
-    Scope: [['channelCount'], ['channels']], GpioIn: [['pins'], []],
-    Const: [['downstream'], []], CosGen: [['downstream'], []],
-    SinGen: [['downstream'], []], RandGen: [['downstream'], []], PulseGen: [['downstream'], []],
+    Cos: [[['downstream'], ['consumer']], []],
+    Sin: [[['downstream'], ['consumer']], []],
+    Product: [[['downstream'], ['channels']], ['precision']],
+    Sum: [[['downstream'], ['channels']], ['precision']],
+    Scope: [[[], ['channels']], ['period', 'precision']],
+    GpioIn: [[['pins'], []], ['port', 'pins']],
+    Const: [[['downstream'], []], ['value']],
+    CosGen: [[['downstream'], []], ['precision', 'frequency', 'amplitude', 'phase']],
+    SinGen: [[['downstream'], []], ['precision', 'frequency', 'amplitude', 'phase']],
+    RandGen: [[['downstream'], []], ['precision', 'amplitude']],
+    PulseGen: [[['downstream'], []], ['dutyCycle', 'amplitude', 'frequency', 'phase']],
   };
   for (const precision of ['F32', 'F64']) {
-    for (const [name, ports] of Object.entries(expected)) {
+    for (const [name, [ports, parameters]] of Object.entries(expected)) {
       const block = meta.blocks.find(entry => entry.id === name + precision);
       assert.ok(block, name + precision);
       assert.deepEqual([block.inputs.map(port => port.id), block.outputs.map(port => port.id)], ports);
+      assert.deepEqual(block.parameters.map(parameter => parameter.id), parameters);
     }
   }
   const cosine = meta.blocks.find(entry => entry.id === 'CosF32');
@@ -60,6 +72,17 @@ test('generates all library ports, documentation, and only the requested metadat
   assert.equal(cosine.icon, 'cos.svg');
   assert.equal(cosine.description, 'Computes the cosine of the input value');
   assert.equal(cosine.outputs[0].name, 'Cosine input consumer');
+  const scope = meta.blocks.find(entry => entry.id === 'ScopeF32');
+  assert.ok(scope);
+  assert.equal(scope.parameters.length, 2);
+  assert.equal(scope.parameters[0].id, 'period');
+  assert.equal(scope.parameters[0].name, 'Period');
+  assert.equal(scope.parameters[0].icon, 'period.svg');
+  assert.deepEqual(scope.parameters[0].control, { type: 'slider', min: 1, max: 3600, step: 1 });
+  assert.equal(scope.parameters[1].id, 'precision');
+  assert.equal(scope.parameters[1].name, 'Precision');
+  assert.equal(scope.parameters[1].icon, 'precision.svg');
+  assert.deepEqual(scope.parameters[1].control, { type: 'number', min: 1, max: 1000, step: 1 });
   assert.equal(run(script).status, 0);
   assert.equal(await readFile(path.join(root, '.cache/meta.json'), 'utf8'), generated);
 });

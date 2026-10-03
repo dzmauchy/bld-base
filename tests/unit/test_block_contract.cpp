@@ -39,7 +39,7 @@ concept ValidBlock = requires { typename Block<I, O>; };
 
 static_assert(ValidBlock<Inputs, Outputs>);
 static_assert(ValidBlock<Empty, void>);
-static_assert(!ValidBlock<void, Outputs>);
+static_assert(ValidBlock<void, Outputs>);
 static_assert(!ValidBlock<i32, Outputs>);
 static_assert(!ValidBlock<Inputs*, Outputs>);
 static_assert(!ValidBlock<Inputs, i32>);
@@ -61,11 +61,21 @@ class Trigger final : public Block<Empty, void> {
 };
 
 template <typename B, typename ExpectedOutput>
-constexpr bool hasBlockContract =
-    requires(B& block, typename B::Input input) {
+constexpr bool hasBlockContract = [] {
+  if constexpr (std::is_void_v<typename B::Input>) {
+    return requires(B& block) {
+      { block.apply() } -> std::same_as<typename B::Output>;
+    } && std::derived_from<B, Block<void, typename B::Output>> &&
+       std::same_as<typename B::Output, ExpectedOutput> &&
+       (std::is_void_v<ExpectedOutput> || (std::is_class_v<ExpectedOutput> && std::is_aggregate_v<ExpectedOutput>));
+  } else {
+    return requires(B& block, typename B::Input input) {
       { block.apply(input) } -> std::same_as<typename B::Output>;
-    } && std::derived_from<B, Block<typename B::Input, typename B::Output>> && std::same_as<typename B::Output, ExpectedOutput> &&
-    (std::is_void_v<ExpectedOutput> || (std::is_class_v<ExpectedOutput> && std::is_aggregate_v<ExpectedOutput>));
+    } && std::derived_from<B, Block<typename B::Input, typename B::Output>> &&
+       std::same_as<typename B::Output, ExpectedOutput> &&
+       (std::is_void_v<ExpectedOutput> || (std::is_class_v<ExpectedOutput> && std::is_aggregate_v<ExpectedOutput>));
+  }
+}();
 
 static_assert(hasBlockContract<push::f_32::sources::ConstF32, void>);
 static_assert(hasBlockContract<push::f_64::sources::ConstF64, void>);
@@ -104,7 +114,7 @@ struct DualScopeOutput {
    * @brief One vectorized output carrying the first scope's consumers.
    * @image scope.svg
    */
-  Vectorized<Consumer<T>> channels{};
+  VectorizedOutput<Consumer<T>> channels{};
 
   /**
    * Single
@@ -119,19 +129,24 @@ struct DualScopeOutput {
  * @brief Exposes two scopes as independent named output ports.
  * @image scope.svg
  */
-template <typename I, typename O>
-class DualScope final : public Block<I, O> {
+template <typename O>
+class DualScope final : public Block<void, O> {
   using T = O::Value;
   using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32Output, push::f_64::sinks::ScopeF64Output>;
 
  public:
-  explicit DualScope(u32 blockId) : Block<I, O>(blockId), first_(blockId), second_(blockId + 1) {}
+  explicit DualScope(u32 blockId) : Block<void, O>(blockId), first_(blockId), second_(blockId + 1) {}
 
-  O apply(I input) override { return {.channels = first_.apply(input).channels, .single = second_.apply({.channelCount = 1}).channels[0]}; }
+  O apply() override {
+    return {
+      .channels = first_.apply().channels,
+      .single = second_.apply().channels(1)[0]
+    };
+  }
 
  private:
-  push::Scope<I, ScopeOutput> first_;
-  push::Scope<I, ScopeOutput> second_;
+  push::Scope<ScopeOutput> first_;
+  push::Scope<ScopeOutput> second_;
 };
 
 }  // namespace
@@ -155,12 +170,12 @@ TEST_CASE("Block supports an empty input struct and void output") {
 TEST_CASE_TEMPLATE("Push wiring works through typed block references", T, f32, f64) {
   MockRuntime::reset();
   using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32Output, push::f_64::sinks::ScopeF64Output>;
-  push::Scope<push::ScopeInput, ScopeOutput> scope(0);
+  push::Scope<ScopeOutput> scope(0);
   push::Constant<push::DownstreamInput<T>> constant(1, T{3});
-  Block<push::ScopeInput, ScopeOutput>& sink = scope;
+  Block<void, ScopeOutput>& sink = scope;
   Block<push::DownstreamInput<T>, void>& source = constant;
-  auto output = sink.apply({.channelCount = 2});
-  source.apply({.downstream = output.channels});
+  auto output = sink.apply();
+  source.apply({.downstream = output.channels(2)});
   MockRuntime::start();
   if constexpr (std::is_same_v<T, f32>) {
     CHECK_EQ(MockRuntime::lastF32(0, 0), 3);
@@ -176,8 +191,8 @@ TEST_CASE("GPIO input preserves disconnected pin positions and fanout") {
   MockRuntime::reset();
   push::f_32::sinks::ScopeF32 scope(0);
   push::f_32::sources::GpioInF32 gpio(1, 7, {1, 3});
-  auto output = scope.apply({.channelCount = 2});
-  gpio.apply({.pins = {{}, output.channels}});
+  auto output = scope.apply();
+  gpio.apply({.pins = {{}, output.channels(2)}});
   MockRuntime::emitGpio(7, 1, true);
   CHECK_FALSE(MockRuntime::hasF32(0, 0));
   CHECK_FALSE(MockRuntime::hasF32(0, 1));
@@ -190,14 +205,15 @@ TEST_CASE("GPIO input preserves disconnected pin positions and fanout") {
 
 TEST_CASE_TEMPLATE("A block returns independent vectorized and scalar output fields", T, f32, f64) {
   MockRuntime::reset();
-  DualScope<push::ScopeInput, DualScopeOutput<T>> scopes(10);
-  Block<push::ScopeInput, DualScopeOutput<T>>& block = scopes;
-  auto [channels, single] = block.apply({.channelCount = 2});
+  DualScope<DualScopeOutput<T>> scopes(10);
+  Block<void, DualScopeOutput<T>>& block = scopes;
+  auto [channels, single] = block.apply();
 
-  REQUIRE_EQ(channels.size(), 2);
+  auto channelList = channels(2);
+  REQUIRE_EQ(channelList.size(), 2);
   REQUIRE(single != nullptr);
-  (*channels[0])(T{3});
-  (*channels[1])(T{5});
+  (*channelList[0])(T{3});
+  (*channelList[1])(T{5});
   (*single)(T{7});
   if constexpr (std::is_same_v<T, f32>) {
     CHECK_EQ(MockRuntime::lastF32(10, 0), 3);
@@ -210,3 +226,4 @@ TEST_CASE_TEMPLATE("A block returns independent vectorized and scalar output fie
   }
   MockRuntime::close();
 }
+

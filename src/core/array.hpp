@@ -4,6 +4,7 @@
 #include <core/types.hpp>
 #include <initializer_list>
 #include <new>
+#include <type_traits>
 
 /**
  * Array
@@ -158,11 +159,59 @@ private:
   u32 cap_ = 0;
 };
 
-template <typename T> using Vectorized = Array<T *>;
+template <typename T> using VectorizedInput = Array<T *>;
+
+/**
+ * VectorizedOutput
+ * @brief A vectorized output port function accepting channel count and returning consumer pointers.
+ * @image type.svg
+ */
+template <typename T> class VectorizedOutput {
+public:
+  using Invoker = Array<T *> (*)(void *,
+                                 u8);
+
+  constexpr VectorizedOutput() = default;
+
+  constexpr VectorizedOutput(void         *target,
+                             const Invoker invoker)
+      : target_(target),
+        invoker_(invoker) {}
+
+  template <auto Method,
+            typename Target>
+  static constexpr VectorizedOutput from(Target *target) {
+    return VectorizedOutput(static_cast<void *>(target), [](void *ptr, const u8 count) -> Array<T *> {
+      return (static_cast<Target *>(ptr)->*Method)(count);
+    });
+  }
+
+  VectorizedOutput(Array<T *> (*fn)(u8))
+      : target_(reinterpret_cast<void *>(fn)),
+        invoker_([](void    *ptr,
+                    const u8 count) -> Array<T *> {
+          auto fn = reinterpret_cast<Array<T *> (*)(u8)>(ptr);
+          return fn(count);
+        }) {}
+
+  Array<T *> operator()(const u8 count) const {
+    if (invoker_) {
+      return invoker_(target_, count);
+    }
+    return {};
+  }
+
+  explicit operator bool() const { return invoker_ != nullptr; }
+
+private:
+  void   *target_ = nullptr;
+  Invoker invoker_ = nullptr;
+};
 
 template <typename T>
 Array<T> arrayFrom(const T *const items,
-                   const u32      count) {
+
+                   const u32 count) {
   auto result = Array<T>{};
   for (u32 i = 0; i < count; ++i) {
     result.push_back(items[i]);

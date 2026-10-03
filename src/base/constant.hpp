@@ -14,6 +14,13 @@ template <typename I> class Constant : public NativeBlock<I, void> {
 public:
   using T = I::Value;
 
+  /**
+   * Constant
+   * @param value Value
+   *   Value emitted by the constant source.
+   *   @icon push.const.svg
+   *   @control number
+   */
   explicit Constant(const u32 blockId,
                     const T   value = 1)
       : NativeBlock<I,
@@ -30,7 +37,8 @@ public:
 private:
   void handleStart() { this->pushTo(downstream, value); }
 
-  Vectorized<Consumer<T>>                downstream{};
+  VectorizedInput<Consumer<T>> downstream{};
+
   MemberConsumer<&Constant::handleStart> startCb{this};
 };
 

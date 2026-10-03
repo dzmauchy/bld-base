@@ -4,13 +4,15 @@ The project version is `VERSION` in `CMakeLists.txt`.
 ## Block interface
 
 Every block uses input and output types, `I` and `O`, and implements or inherits
-`O apply(I input)`. `I` is a struct. `O` is a struct or `void` when there are no
-returned ports. Each field declares one logical input or output port. A vectorized
-output is one field, regardless of how many elements it contains. `Block<I, O>` exposes these types as `Input` and
+`O apply(I input)` (or `O apply()` when `I` is `void`). `I` is a struct or `void`.
+`O` is a struct or `void` when there are no returned ports. Each field declares one
+logical input or output port. A vectorized input port is `VectorizedInput<T>` (`Array<T*>`),
+and a vectorized output port is a callable `VectorizedOutput<T>` which accepts a `u8` channel
+count and returns `Array<T*>`. `Block<I, O>` exposes these types as `Input` and
 `Output` and supports virtual dispatch through the same interface.
 
 The push blocks retain their stream behavior: `apply` wires consumer streams,
-and the runtime delivers values through callbacks. Constructor arguments still
+and the runtime delivers values through callbacks. Constructor arguments
 configure the blocks. All input and output wrappers live in `base/ports.hpp`.
 Each f32 and f64 block with outputs has its own `O` struct in that file,
 with documentation on every output field:
@@ -19,8 +21,8 @@ with documentation on every output field:
 | --- | --- | --- | --- |
 | Constant and generators | `downstream` | `void` | None |
 | Cosine / sine transformers | `downstream` | `CosF32Output` / `SinF32Output` | `consumer` |
-| Sum / product | `downstream`, `channelCount` | `SumF32Output` / `ProductF32Output` | `channels` |
-| Scope | `channelCount` | `ScopeF32Output` | `channels` |
+| Sum / product | `downstream` | `SumF32Output` / `ProductF32Output` | `channels` |
+| Scope | None (`void`) | `ScopeF32Output` | `channels` |
 | GPIO input | `pins` (consumer groups in configured pin order) | `void` | None |
 
 The f64 blocks have corresponding `F64Output` structs. `apply` returns the
@@ -36,8 +38,8 @@ push::f_32::transformers::CosF32 cosine(1);
 push::f_32::sources::ConstF32 constant(2, 0.f);
 
 void wire() {
-  push::f_32::sinks::ScopeF32Output scopeOutput = scope.apply({.channelCount = 1});
-  push::f_32::transformers::CosF32Output cosineOutput = cosine.apply({.downstream = scopeOutput.channels});
+  push::f_32::sinks::ScopeF32Output scopeOutput = scope.apply();
+  push::f_32::transformers::CosF32Output cosineOutput = cosine.apply({.downstream = scopeOutput.channels(1)});
   constant.apply({.downstream = {cosineOutput.consumer}});
 }
 ```
@@ -46,7 +48,7 @@ Call `wire()` before starting the runtime. Blocks must remain alive at the same
 address while their consumers and runtime callbacks are in use. All blocks in
 `push::f_32` and `push::f_64` are concrete classes or aliases, such as `CosF32` and
 `ScopeF32`, and are named without template arguments. For custom ports, use the
-generic implementation templates such as `push::Scope<I, O>`. Custom port structs
+generic implementation templates such as `push::Scope<O>`. Custom port structs
 must supply the same fields and a `Value` type alias where the default struct has one.
 
 Documentation uses this format on each declaration:
@@ -57,7 +59,7 @@ Documentation uses this format on each declaration:
  * @brief Streams that receive values emitted by the block.
  * @image consumer.svg
  */
-Vectorized<Consumer<T>> downstream{};
+VectorizedInput<Consumer<T>> downstream{};
 ```
 
 ## Building
@@ -117,10 +119,14 @@ warning is harmless for AST generation.
 
 The output has `namespaces` and `blocks` arrays. Namespace entries use fully
 qualified IDs such as `push::f_32::sinks` and contain `id`, `name`, `description`,
-and `icon`. Block and port entries also contain `namespace`; blocks have `inputs`
-and `outputs` arrays. Names come from the first
-documentation paragraph, descriptions from `@brief`/`@details`, and icons from
-`@image`. Missing documentation falls back to the declaration name and empty
+and `icon`. Block and port entries also contain `namespace`; blocks have `inputs`,
+`outputs`, and `parameters` arrays. Each parameter object contains `id`, `namespace`,
+`name`, `description`, `icon`, and a `control` object describing the UI control
+(e.g., `type`, `min`, `max`, `step`). Constructor parameters are documented in
+comments on the constructor using nested `@param <id> <Name>` followed by description text,
+`@icon <icon.svg>`, `@control <type>`, `@min`, `@max`, and `@step`, excluding `blockId`. Names come from
+the first documentation paragraph, descriptions from `@brief`/`@details`, and icons
+from `@image`. Missing documentation falls back to the declaration name and empty
 description/icon strings. `namespace` is the enclosing C++ scope (`""` for global
 scope). Port scopes are those of their declaring structs. IDs are unqualified
 declaration names; port IDs are field names. C++ type expressions and

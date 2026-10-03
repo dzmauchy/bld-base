@@ -50,7 +50,7 @@ protected:
  * @brief Computes the product of the input values
  * @image product.svg
  */
-class ProductF64 : public Aggregate<AggregateInput<f64>, ProductF64Output> {
+class ProductF64 : public Aggregate<DownstreamInput<f64>, ProductF64Output> {
 public:
   using Aggregate::Aggregate;
 
@@ -67,7 +67,7 @@ protected:
  * @brief Computes the sum of the input values
  * @image sum.svg
  */
-class SumF64 : public Aggregate<AggregateInput<f64>, SumF64Output> {
+class SumF64 : public Aggregate<DownstreamInput<f64>, SumF64Output> {
 public:
   using Aggregate::Aggregate;
 
@@ -88,7 +88,7 @@ namespace push::f_64::sinks {
  * @brief Displays the input values in a scope
  * @image scope.svg
  */
-using ScopeF64 = Scope<ScopeInput, ScopeF64Output>;
+using ScopeF64 = Scope<ScopeF64Output>;
 
 } // namespace push::f_64::sinks
 

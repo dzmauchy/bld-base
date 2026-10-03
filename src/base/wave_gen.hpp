@@ -14,6 +14,30 @@ template <typename I> class WaveGen : public PeriodicSource<I> {
 public:
   using T = I::Value;
 
+  /**
+   * WaveGen
+   * @param precision Precision
+   *   Sampling interval in milliseconds.
+   *   @icon precision.svg
+   *   @control number
+   *   @min 1
+   *   @max 1000
+   *   @step 1
+   * @param frequency Frequency
+   *   Frequency of the generated wave in Hertz.
+   *   @icon frequency.svg
+   *   @control number
+   *   @min 0
+   *   @step 0.1
+   * @param amplitude Amplitude
+   *   Peak amplitude of the generated wave.
+   *   @icon amplitude.svg
+   *   @control number
+   * @param phase Phase
+   *   Initial phase offset in radians.
+   *   @icon phase.svg
+   *   @control number
+   */
   explicit WaveGen(const u32 blockId,
                    const u32 precision = 10,
                    const T   frequency = 1,

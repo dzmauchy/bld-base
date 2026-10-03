@@ -14,6 +14,30 @@ template <typename I> class PulseGen : public PeriodicSource<I> {
 public:
   using T = I::Value;
 
+  /**
+   * PulseGen
+   * @param dutyCycle Duty cycle
+   *   Fraction of the period during which the pulse signal is high.
+   *   @icon duty_cycle.svg
+   *   @control slider
+   *   @min 0
+   *   @max 1
+   *   @step 0.01
+   * @param amplitude Amplitude
+   *   Pulse signal amplitude.
+   *   @icon amplitude.svg
+   *   @control number
+   * @param frequency Frequency
+   *   Frequency of the pulse signal in Hertz.
+   *   @icon frequency.svg
+   *   @control number
+   *   @min 0
+   *   @step 0.1
+   * @param phase Phase
+   *   Initial phase offset in radians.
+   *   @icon phase.svg
+   *   @control number
+   */
   explicit PulseGen(const u32 blockId,
                     const T   dutyCycle = T{0.5},
                     const T   amplitude = 1,

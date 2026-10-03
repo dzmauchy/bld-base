@@ -14,6 +14,20 @@ template <typename I> class GpioIn : public NativeBlock<I, void> {
 public:
   using T = I::Value;
 
+  /**
+   * GpioIn
+   * @param port Port
+   *   Hardware GPIO port identifier to monitor.
+   *   @icon port.svg
+   *   @control number
+   *   @min 0
+   *   @max 65535
+   *   @step 1
+   * @param pins Pins
+   *   GPIO pin indices to listen to for events.
+   *   @icon push.gpio_in.svg
+   *   @control text
+   */
   explicit GpioIn(const u32 blockId,
                   const u16 port = 0,
                   Array<u8> pins = {0})
@@ -87,7 +101,7 @@ private:
     }
   }
 
-  Vectorized<Consumer<T>>              pinConsumers[kMaxPins]{};
+  VectorizedInput<Consumer<T>>         pinConsumers[kMaxPins]{};
   PinSlot                              slots[kMaxPins]{};
   u32                                  handles[kMaxPins]{};
   u32                                  handleCount{0};

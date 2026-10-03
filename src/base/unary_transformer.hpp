@@ -29,7 +29,7 @@ protected:
 private:
   void handlePush(const T value) { this->pushTo(downstream, transform(value)); }
 
-  Vectorized<Consumer<T>>                       downstream{};
+  VectorizedInput<Consumer<T>>                  downstream{};
   MemberConsumer<&UnaryTransformer::handlePush> pushConsumer{this};
 };
 

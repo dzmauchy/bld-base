@@ -96,8 +96,8 @@ protected:
 
   template <typename T,
             typename Item>
-  static auto pointersOf(Array<Item> &items) -> Vectorized<Consumer<T>> {
-    auto result = Vectorized<Consumer<T>>{};
+  static auto pointersOf(Array<Item> &items) -> VectorizedInput<Consumer<T>> {
+    auto result = VectorizedInput<Consumer<T>>{};
     result.reserve(items.size());
     for (u32 i = 0; i < items.size(); ++i) {
       result.push_back(&items[i]);

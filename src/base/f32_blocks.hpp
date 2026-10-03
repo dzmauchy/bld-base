@@ -50,7 +50,7 @@ protected:
  * @brief Computes the product of the input values
  * @image product.svg
  */
-class ProductF32 : public Aggregate<AggregateInput<f32>, ProductF32Output> {
+class ProductF32 : public Aggregate<DownstreamInput<f32>, ProductF32Output> {
 public:
   using Aggregate::Aggregate;
 
@@ -67,7 +67,7 @@ protected:
  * @brief Computes the sum of the input values
  * @image sum.svg
  */
-class SumF32 : public Aggregate<AggregateInput<f32>, SumF32Output> {
+class SumF32 : public Aggregate<DownstreamInput<f32>, SumF32Output> {
 public:
   using Aggregate::Aggregate;
 
@@ -88,7 +88,7 @@ namespace push::f_32::sinks {
  * @brief Displays the input values in a scope
  * @image scope.svg
  */
-using ScopeF32 = Scope<ScopeInput, ScopeF32Output>;
+using ScopeF32 = Scope<ScopeF32Output>;
 
 } // namespace push::f_32::sinks
 

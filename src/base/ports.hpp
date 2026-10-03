@@ -18,43 +18,7 @@ template <typename T> struct DownstreamInput {
    * @brief Streams that receive values emitted by the block.
    * @image consumer.svg
    */
-  Vectorized<Consumer<T>> downstream{};
-};
-
-/**
- * AggregateInput
- * @brief Downstream streams and the number of aggregate channels.
- * @image input.svg
- */
-template <typename T> struct AggregateInput {
-  using Value = T;
-
-  /**
-   * Downstream
-   * @brief Streams that receive the combined value.
-   * @image consumer.svg
-   */
-  Vectorized<Consumer<T>> downstream{};
-  /**
-   * Channel count
-   * @brief Number of independent consumer channels to create.
-   * @image input.svg
-   */
-  u8 channelCount{0};
-};
-
-/**
- * ScopeInput
- * @brief Inputs used to create scope channels.
- * @image input.svg
- */
-struct ScopeInput {
-  /**
-   * Channel count
-   * @brief Number of independent scope channels to create.
-   * @image scope.svg
-   */
-  u8 channelCount{0};
+  VectorizedInput<Consumer<T>> downstream{};
 };
 
 /**
@@ -70,7 +34,7 @@ template <typename T> struct GpioInput {
    * @brief Streams per configured pin, in constructor pin order; empty entries leave pins disconnected.
    * @image push.gpio_in.svg
    */
-  Array<Vectorized<Consumer<T>>> pins{};
+  Array<VectorizedInput<Consumer<T>>> pins{};
 };
 
 } // namespace push
@@ -122,7 +86,7 @@ struct ProductF32Output {
    * @brief One vectorized output containing the consumers for the factors to multiply.
    * @image product.svg
    */
-  Vectorized<Consumer<f32>> channels{};
+  VectorizedOutput<Consumer<f32>> channels{};
 };
 
 /**
@@ -138,7 +102,7 @@ struct SumF32Output {
    * @brief One vectorized output containing the consumers for the terms to add.
    * @image sum.svg
    */
-  Vectorized<Consumer<f32>> channels{};
+  VectorizedOutput<Consumer<f32>> channels{};
 };
 
 } // namespace push::f_32::transformers
@@ -158,7 +122,7 @@ struct ScopeF32Output {
    * @brief One vectorized output containing independently observed scope consumers.
    * @image scope.svg
    */
-  Vectorized<Consumer<f32>> channels{};
+  VectorizedOutput<Consumer<f32>> channels{};
 };
 
 } // namespace push::f_32::sinks
@@ -210,7 +174,7 @@ struct ProductF64Output {
    * @brief One vectorized output containing the consumers for the factors to multiply.
    * @image product.svg
    */
-  Vectorized<Consumer<f64>> channels{};
+  VectorizedOutput<Consumer<f64>> channels{};
 };
 
 /**
@@ -226,7 +190,7 @@ struct SumF64Output {
    * @brief One vectorized output containing the consumers for the terms to add.
    * @image sum.svg
    */
-  Vectorized<Consumer<f64>> channels{};
+  VectorizedOutput<Consumer<f64>> channels{};
 };
 
 } // namespace push::f_64::transformers
@@ -246,7 +210,7 @@ struct ScopeF64Output {
    * @brief One vectorized output containing independently observed scope consumers.
    * @image scope.svg
    */
-  Vectorized<Consumer<f64>> channels{};
+  VectorizedOutput<Consumer<f64>> channels{};
 };
 
 } // namespace push::f_64::sinks

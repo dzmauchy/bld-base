@@ -16,9 +16,11 @@ TEST_CASE_TEMPLATE("Host C bindings drive time, callbacks, GPIO and observations
   Scope scope(0);
   Sine sine(1, 25);
   Gpio gpio(2, 7, {3});
-  auto output = scope.apply({.channelCount = 2});
-  sine.apply({.downstream = {output.channels[0]}});
-  gpio.apply({.pins = {{output.channels[1]}}});
+  auto output = scope.apply();
+  auto channels = output.channels(2);
+  sine.apply({.downstream = {channels[0]}});
+  gpio.apply({.pins = {{channels[1]}}});
+
 
   MockRuntime::setNow(1000);
   MockRuntime::start();

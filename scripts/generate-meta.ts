@@ -57,9 +57,14 @@ export interface MetadataEntry {
   icon: string;
 }
 
+export interface ParameterMetadata extends MetadataEntry {
+  control: Record<string, unknown>;
+}
+
 export interface BlockMetadata extends MetadataEntry {
   inputs: MetadataEntry[];
   outputs: MetadataEntry[];
+  parameters: ParameterMetadata[];
 }
 
 export interface Metadata {
@@ -322,6 +327,149 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
     return [...inherited, ...fields.map(field => metadata(field, declaration.scope))];
   }
 
+  function findConstructor(declaration: Declaration, seen = new Set<Declaration>()): { ctor: AstNode; decl: Declaration } | undefined {
+    if (seen.has(declaration)) return undefined;
+    seen.add(declaration);
+    if (declaration.node.kind === 'TypeAliasDecl' || declaration.node.kind === 'TypedefDecl') {
+      const type = declaration.node.type;
+      if (!type) return undefined;
+      const target = resolve(type.desugaredQualType ?? type.qualType, declaration.scope);
+      return target ? findConstructor(target, seen) : undefined;
+    }
+    const ctors = children(declaration.node).filter(child => child.kind === 'CXXConstructorDecl' && !child.isImplicit);
+    const ctorWithParams = ctors.find(ctor =>
+      children(ctor).some(child => child.kind === 'ParmVarDecl' && child.name !== 'blockId')
+    );
+    if (ctorWithParams) return { ctor: ctorWithParams, decl: declaration };
+    const ctorWithComments = ctors.find(ctor => fullComment(ctor));
+    if (ctorWithComments) return { ctor: ctorWithComments, decl: declaration };
+
+    for (const base of declaration.node.bases ?? []) {
+      const parent = resolve(base.type.desugaredQualType ?? base.type.qualType, declaration.scope);
+      if (parent) {
+        const found = findConstructor(parent, seen);
+        if (found) return found;
+      }
+    }
+    if (ctors.length > 0) return { ctor: ctors[0], decl: declaration };
+  }
+
+  function extractParameters(declaration: Declaration): ParameterMetadata[] {
+    const found = findConstructor(declaration);
+    if (!found) return [];
+    const { ctor } = found;
+    const parms = children(ctor).filter(child => child.kind === 'ParmVarDecl');
+    const relevantParms = parms.filter(p => p.name !== 'blockId');
+    if (relevantParms.length === 0) return [];
+
+    const comment = fullComment(ctor);
+    const paramDocs = new Map<string, {
+      name: string;
+      description: string;
+      icon: string;
+      control: Record<string, unknown>;
+    }>();
+
+    let currentParam: {
+      name: string;
+      description: string;
+      icon: string;
+      control: Record<string, unknown>;
+    } | undefined;
+
+    for (const child of children(comment)) {
+      if (child.kind === 'ParamCommandComment') {
+        const paramId = (child as unknown as { param?: string }).param ?? '';
+        const doc = { name: '', description: '', icon: '', control: {} as Record<string, unknown> };
+
+        const innerList = children(child).flatMap(c => c.kind === 'ParagraphComment' ? children(c) : [c]);
+        const textParts: string[] = [];
+        let seenCommand = false;
+
+        for (let i = 0; i < innerList.length; i++) {
+          const item = innerList[i];
+          if (item.kind === 'InlineCommandComment') {
+            seenCommand = true;
+            const cmdName = item.name;
+            let valText = '';
+            let j = i + 1;
+            while (j < innerList.length && innerList[j].kind !== 'InlineCommandComment') {
+              if (innerList[j].kind === 'TextComment') {
+                valText += innerList[j].text ?? '';
+              }
+              j++;
+            }
+            i = j - 1;
+            const val = valText.trim();
+            if (cmdName === 'icon') {
+              doc.icon = val;
+            } else if (cmdName === 'control') {
+              doc.control.type = val;
+            } else if (cmdName) {
+              const num = Number(val);
+              doc.control[cmdName] = !Number.isNaN(num) && val !== '' ? num : val;
+            }
+          } else if (item.kind === 'TextComment' && !seenCommand) {
+            const text = item.text?.trim();
+            if (text) {
+              textParts.push(text);
+            }
+          }
+        }
+
+        if (textParts.length > 1) {
+          doc.name = textParts[0];
+          doc.description = textParts.slice(1).join('\n\n');
+        } else if (textParts.length === 1) {
+          doc.name = textParts[0];
+        }
+
+        currentParam = doc;
+        paramDocs.set(paramId, doc);
+        continue;
+      }
+      if (!currentParam) continue;
+
+      if (child.kind === 'BlockCommandComment') {
+        if (child.name === 'brief' || child.name === 'details') {
+          const text = commentText(child);
+          if (text) {
+            currentParam.description = currentParam.description
+              ? `${currentParam.description}\n\n${text}`
+              : text;
+          }
+        } else if (child.name) {
+          const val = commentText(child);
+          if (child.name === 'control') {
+            currentParam.control.type = val;
+          } else {
+            const num = Number(val);
+            currentParam.control[child.name] = !Number.isNaN(num) && val !== '' ? num : val;
+          }
+        }
+      } else if (child.kind === 'VerbatimLineComment') {
+        const loc = child.loc;
+        const isImage = !!loc?.file && sources.get(loc.file)?.subarray(loc.offset, loc.offset + loc.tokLen).toString() === 'image';
+        if (isImage) {
+          currentParam.icon = child.text?.trim().replace(/^(?:html|latex|docbook|rtf|xml)\s+/, '').split(/\s+/, 1)[0] ?? '';
+        }
+      }
+    }
+
+    return relevantParms.map(parm => {
+      const id = parm.name ?? '';
+      const doc = paramDocs.get(id);
+      return {
+        id,
+        namespace: declaration.scope.join('::'),
+        name: doc?.name || id,
+        description: doc?.description || '',
+        icon: doc?.icon || '',
+        control: doc?.control?.type ? doc.control : { type: 'text', ...(doc?.control ?? {}) },
+      };
+    });
+  }
+
   const blocks: BlockMetadata[] = [];
   for (const declaration of declarations.values()) {
     if (!isBlock(declaration)) continue;
@@ -343,13 +491,18 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
     }
     const parameters = children(template).filter(child => child.kind === 'TemplateTypeParmDecl');
     const parameterType = (index: number) => typeArguments[index]?.type ?? parameters[index]?.defaultArg?.type;
-    const input = parameterType(parameters.findIndex(parameter => parameter.name === 'I'));
+    const inputIndex = parameters.findIndex(parameter => parameter.name === 'I');
+    const input = inputIndex !== -1 ? parameterType(inputIndex) : undefined;
     const outputIndex = parameters.findIndex(parameter => parameter.name === 'O');
-    const output = parameterType(outputIndex);
-    // A block may omit O when its base fixes the output type to void.
-    if (input && (outputIndex === -1 || output)) {
-      blocks.push({ ...declaration.meta,
-        inputs: ports(input, declaration.scope), outputs: output ? ports(output, declaration.scope) : [] });
+    const output = outputIndex !== -1 ? parameterType(outputIndex) : undefined;
+    // A block may omit I or O when its base fixes the type to void.
+    if ((inputIndex === -1 || input) && (outputIndex === -1 || output)) {
+      blocks.push({
+        ...declaration.meta,
+        inputs: input ? ports(input, declaration.scope) : [],
+        outputs: output ? ports(output, declaration.scope) : [],
+        parameters: extractParameters(declaration),
+      });
     }
   }
   const sorted = <T extends { id: string; namespace?: string }>(values: Iterable<T>): T[] => [...values].sort((a, b) => {

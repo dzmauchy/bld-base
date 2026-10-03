@@ -11,6 +11,16 @@ template <typename I, typename O> class Aggregate : public NativeBlock<I, O> {
 public:
   using T = I::Value;
 
+  /**
+   * Aggregate
+   * @param precision Precision
+   *   Interval in milliseconds for combining and emitting aggregated values.
+   *   @icon precision.svg
+   *   @control number
+   *   @min 1
+   *   @max 1000
+   *   @step 1
+   */
   explicit Aggregate(const u32 blockId,
                      const u32 precision = 10)
       : NativeBlock<I,
@@ -21,7 +31,7 @@ public:
 
   O apply(I input) override {
     downstream = move(input.downstream);
-    return O{.channels = bindInputs(input.channelCount)};
+    return O{.channels = VectorizedOutput<Consumer<T>>::template from<&Aggregate::bindInputs>(this)};
   }
 
   const u32 precision;
@@ -41,7 +51,7 @@ private:
 
   void handleStart() { this->armInterval(precision, tickCb, closeCb); }
 
-  auto bindInputs(const u8 n) -> Vectorized<Consumer<T>> {
+  auto bindInputs(const u8 n) -> Array<Consumer<T> *> {
     values.assign(n, nan_of<T>());
     inputs.clear();
     inputs.reserve(n);
@@ -70,7 +80,8 @@ private:
     }
   }
 
-  Vectorized<Consumer<T>>                                  downstream{};
+  VectorizedInput<Consumer<T>> downstream{};
+
   Array<T>                                                 values{};
   Array<IndexedMemberConsumer<&Aggregate::handleChannel>>  inputs{};
   MemberConsumer<&Aggregate::handleTick>                   tickCb{this};
