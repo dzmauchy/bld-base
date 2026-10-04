@@ -53,6 +53,7 @@ if(BASE_BUILD_TESTS)
     tests/unit/test_blocks.cpp
     tests/unit/test_blocks_f64.cpp
     tests/unit/test_host_bindings.cpp
+    tests/unit/test_vectorized_output.cpp
   )
   target_link_libraries(base_tests PRIVATE base doctest::doctest)
   set_source_files_properties(tests/unit/test_blocks.cpp PROPERTIES COMPILE_DEFINITIONS DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN)
