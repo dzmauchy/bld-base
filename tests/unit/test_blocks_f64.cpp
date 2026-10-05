@@ -55,6 +55,23 @@ TEST_SUITE("f64 blocks") {
     CHECK(MockRuntime::lastF64(0, 0) == doctest::Approx(std::sin(1.0)));
   }
 
+  TEST_CASE_FIXTURE(BlocksFixture, "NegativeAnglesKeepSineOddAndCosineEven") {
+    auto scope = ScopeF64(0);
+    auto sinks = scope.apply().channels(2);
+    auto sin = SinF64(1);
+    auto cos = CosF64(2);
+    auto sinInput = sin.apply({.downstream = {sinks[0]}}).consumer;
+    auto cosInput = cos.apply({.downstream = {sinks[1]}}).consumer;
+
+    (*sinInput)(-1.0);
+    (*cosInput)(-1.0);
+
+    CHECK(MockRuntime::lastF64(0, 0) == doctest::Approx(std::sin(-1.0)));
+    CHECK(MockRuntime::lastF64(0, 1) == doctest::Approx(std::cos(-1.0)));
+    CHECK(MockRuntime::lastF64(0, 0) < 0.0);
+    CHECK(MockRuntime::lastF64(0, 1) > 0.0);
+  }
+
   TEST_CASE_FIXTURE(BlocksFixture, "ProductAndSum") {
     auto scope = ScopeF64(0);
     auto sinks = scope.apply().channels(2);

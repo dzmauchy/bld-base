@@ -28,6 +28,17 @@ struct BlocksFixture {
 
 constexpr f32 kEps = 1e-5f;
 
+class CountingF32 final : public Consumer<f32> {
+public:
+  void operator()(f32 value) override {
+    ++count;
+    last = value;
+  }
+
+  u32 count{0};
+  f32 last{};
+};
+
 } // namespace
 
 TEST_SUITE("ScopeF32") {
@@ -99,6 +110,33 @@ TEST_SUITE("ConstF32") {
 
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "StaysSilentUntilStartThenDeliversOnce") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply().channels(1);
+    auto deliveries = CountingF32{};
+    auto constant = ConstF32(1, 4.5f);
+
+    MockRuntime::start();
+    constant.apply({.downstream = {&deliveries, sinks[0]}});
+    CHECK_EQ(deliveries.count, 0);
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+
+    MockRuntime::tick();
+    CHECK_EQ(deliveries.count, 0);
+
+    MockRuntime::start();
+    CHECK_EQ(deliveries.count, 1);
+    CHECK_EQ(deliveries.last, 4.5f);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4.5f);
+
+    MockRuntime::tick();
+    MockRuntime::close();
+    CHECK_EQ(deliveries.count, 1);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4.5f);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  }
 }
 
 TEST_SUITE("UnaryTransformers") {
@@ -141,6 +179,23 @@ TEST_SUITE("UnaryTransformers") {
     MockRuntime::start();
 
     CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(std::sin(1.f)).epsilon(kEps));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NegativeAnglesKeepSineOddAndCosineEven") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply().channels(2);
+    auto sin = SinF32(1);
+    auto cos = CosF32(2);
+    auto sinInput = sin.apply({.downstream = {sinks[0]}}).consumer;
+    auto cosInput = cos.apply({.downstream = {sinks[1]}}).consumer;
+
+    (*sinInput)(-1.f);
+    (*cosInput)(-1.f);
+
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(std::sin(-1.f)).epsilon(kEps));
+    CHECK(MockRuntime::lastF32(0, 1) == doctest::Approx(std::cos(-1.f)).epsilon(kEps));
+    CHECK(MockRuntime::lastF32(0, 0) < 0.f);
+    CHECK(MockRuntime::lastF32(0, 1) > 0.f);
   }
 }
 
@@ -199,6 +254,36 @@ TEST_SUITE("ProductF32") {
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
   }
 
+  TEST_CASE_FIXTURE(BlocksFixture, "RetargetsDownstreamWithoutClearingLatchedFactors") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply().channels(2);
+    auto product = ProductF32(1);
+    auto previous = CountingF32{};
+    auto output = product.apply({.downstream = {&previous, sinks[0]}});
+    auto factors = output.channels(2);
+    (*factors[0])(3.f);
+    (*factors[1])(4.f);
+
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_EQ(previous.count, 1);
+    CHECK_EQ(previous.last, 12.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
+    CHECK_FALSE(MockRuntime::hasF32(0, 1));
+
+    product.apply({.downstream = {sinks[1]}});
+    MockRuntime::tick();
+    CHECK_EQ(previous.count, 1);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 12.f);
+
+    (*factors[0])(5.f);
+    MockRuntime::tick();
+    CHECK_EQ(previous.count, 1);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 12.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 20.f);
+  }
+
 }
 
 TEST_SUITE("SumF32") {
@@ -232,6 +317,27 @@ TEST_SUITE("SumF32") {
     MockRuntime::tick();
 
     CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "LatchesTermsInAnyOrder") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope.apply().channels(1);
+    auto sum = SumF32(1);
+    auto inputs = sum.apply({.downstream = sinks}).channels(3);
+    REQUIRE_EQ(inputs.size(), 3);
+
+    (*inputs[2])(5.f);
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+
+    (*inputs[0])(2.f);
+    MockRuntime::tick();
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+
+    (*inputs[1])(-1.f);
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 6.f);
   }
 }
 
@@ -347,6 +453,27 @@ TEST_SUITE("PulseGenF32") {
     MockRuntime::start();
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PublishesOnEveryTickEvenWhenTheSampleIsUnchanged") {
+    auto deliveries = CountingF32{};
+    auto gen = PulseGenF32(1, 0.5f);
+    gen.apply({.downstream = {&deliveries}});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    CHECK_EQ(deliveries.count, 0);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+
+    MockRuntime::tick();
+    MockRuntime::tick();
+    CHECK_EQ(deliveries.count, 2);
+    CHECK_EQ(deliveries.last, 1.f);
+
+    MockRuntime::setNow(500);
+    MockRuntime::tick();
+    CHECK_EQ(deliveries.count, 3);
+    CHECK_EQ(deliveries.last, 0.f);
   }
 }
 
