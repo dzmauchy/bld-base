@@ -6,10 +6,26 @@ The project version is `VERSION` in `CMakeLists.txt`.
 Every block uses input and output types, `I` and `O`, and implements or inherits
 `O apply(I input)` (or `O apply()` when `I` is `void`). `I` is a struct or `void`.
 `O` is a struct or `void` when there are no returned ports. Each field declares one
-logical input or output port. A vectorized input port is `VectorizedInput<T>` (`Array<T*>`),
+logical input or output port. A vectorized input port is `VectorizedInput<T>` (`std::vector<T*>`),
 and a vectorized output port is a callable `VectorizedOutput<T>` which accepts a `u8` channel
-count and returns `Array<T*>`. `Block<I, O>` exposes these types as `Input` and
+count and returns `std::vector<T*>`. `Block<I, O>` exposes these types as `Input` and
 `Output` and supports virtual dispatch through the same interface.
+
+Use `std::vector<T>(count)` for value-initialized elements,
+`std::vector<T>(count, value)` for repeated values, or `std::vector<T>(first, last)`
+to copy an existing buffer. `std::vector<i32>{3}` contains one value, while
+`std::vector<i32>(3)` contains three zero-initialized values.
+Vectors can grow and resize; blocks configure channel storage before returning
+consumer pointers. Rebuilding or reallocating that storage invalidates its
+previous consumer pointers, so configure channels before wiring consumers or
+starting the runtime.
+
+`VectorizedOutput<T>` is an alias for `std::function<std::vector<T*>(u8)>` and owns its callable.
+`VectorizedOutput<T>{}` creates an empty output; calling it throws `std::bad_function_call`.
+Assign a function, functor, or capturing lambda directly to bind an output.
+Member bindings use lambdas such as `[this](u8 count) { return makeChannels(count); }`.
+Objects captured by pointer or reference must remain alive at the same address
+while the output is used. Storing the callable may allocate memory.
 
 The push blocks retain their stream behavior: `apply` wires consumer streams,
 and the runtime delivers values through callbacks. Constructor arguments
@@ -92,7 +108,7 @@ ctest --test-dir build --output-on-failure
 
 Sources live under `src/`. Install and the release archive use the contents of that directory as the include prefix:
 
-- `core/` — shared HAL and runtime headers (`Block`, `Callback`, `Array`, `Maybe`, `move()`, member adapters), included as `#include <core/....hpp>`
+- `core/` — shared HAL and runtime headers (`Block`, `Callback`, `VectorizedInput`, `VectorizedOutput`, `Maybe`, `move()`, member adapters), included as `#include <core/....hpp>`
 - `core/math/` — `wrapTwoPi` and trigonometry helpers, included as `#include <core/math/trig.hpp>`
 - `base/` — this library's push blocks; include `base/f32_blocks.hpp` or `base/f64_blocks.hpp` for the corresponding endpoints
 

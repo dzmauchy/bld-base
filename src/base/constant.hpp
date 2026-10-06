@@ -1,7 +1,7 @@
 #pragma once
 
 #include <base/native_block.hpp>
-#include <core/move.hpp>
+#include <utility>
 
 namespace push {
 
@@ -28,7 +28,7 @@ public:
         value(value) {}
 
   void apply(I input) override {
-    downstream = move(input.downstream);
+    downstream = std::move(input.downstream);
     this->onStart(startCb);
   }
 

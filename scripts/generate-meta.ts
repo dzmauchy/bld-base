@@ -130,7 +130,9 @@ async function compile(assets: string): Promise<Metadata> {
     '-cc1', '-triple', 'wasm32-unknown-emscripten', '-std=c++23', '-x', 'c++',
     '-isysroot', '/sysroot', '-resource-dir', '/sysroot/lib/clang/23',
     '-isystem', '/sysroot/include/c++/v1',
-    '-isystem', '/sysroot/lib/clang/23/include', '-isystem', '/sysroot/include',
+    '-isystem', '/sysroot/lib/clang/23/include',
+    '-isystem', '/sysroot/include/compat', // Emscripten's xlocale.h and C header shims.
+    '-isystem', '/sysroot/include',
     '-I', '/project/src', '-fparse-all-comments', '-ast-dump=json', '/project/meta.cpp',
   ]);
   FS.close(stdout);

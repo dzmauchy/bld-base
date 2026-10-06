@@ -4,7 +4,8 @@
 #include <core/block.hpp>
 #include <core/callback.hpp>
 #include <core/hal.hpp>
-#include <core/move.hpp>
+#include <utility>
+#include <vector>
 
 /**
  * NativeBlock
@@ -38,7 +39,7 @@ protected:
    */
   class ClearGpioHandlesCallback final : public Callback {
   public:
-    explicit ClearGpioHandlesCallback(Array<u32> handles) : handles(move(handles)) {}
+    explicit ClearGpioHandlesCallback(std::vector<u32> handles) : handles(std::move(handles)) {}
     void operator()() override {
       for (auto handle : handles) {
         clearGpio(handle);
@@ -46,7 +47,7 @@ protected:
     }
 
   private:
-    Array<u32> handles;
+    std::vector<u32> handles;
   };
 
   void onStart(auto &callback) { on_start(&callback); }
@@ -96,11 +97,11 @@ protected:
 
   template <typename T,
             typename Item>
-  static auto pointersOf(Array<Item> &items) -> VectorizedInput<Consumer<T>> {
-    auto result = VectorizedInput<Consumer<T>>{};
+  static auto pointersOf(std::vector<Item> &items) -> VectorizedInput<Consumer<T>> {
+    VectorizedInput<Consumer<T>> result;
     result.reserve(items.size());
-    for (u32 i = 0; i < items.size(); ++i) {
-      result.push_back(&items[i]);
+    for (auto &item : items) {
+      result.push_back(&item);
     }
     return result;
   }

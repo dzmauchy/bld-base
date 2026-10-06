@@ -2,7 +2,7 @@
 
 #include <base/native_block.hpp>
 #include <core/maybe.hpp>
-#include <core/move.hpp>
+#include <utility>
 
 namespace push {
 
@@ -18,7 +18,7 @@ public:
   ~PeriodicSource() override = default;
 
   void apply(I input) override {
-    downstream = move(input.downstream);
+    downstream = std::move(input.downstream);
     this->onStart(startCb);
   }
 

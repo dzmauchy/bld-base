@@ -3,7 +3,8 @@
 #include <base/native_block.hpp>
 #include <core/hal.hpp>
 #include <core/maybe.hpp>
-#include <core/move.hpp>
+#include <utility>
+#include <vector>
 
 namespace push {
 
@@ -30,8 +31,8 @@ public:
   ~Aggregate() override = default;
 
   O apply(I input) override {
-    downstream = move(input.downstream);
-    return O{.channels = VectorizedOutput<Consumer<T>>::template from<&Aggregate::bindInputs>(this)};
+    downstream = std::move(input.downstream);
+    return O{.channels = [this](const u8 count) { return bindInputs(count); }};
   }
 
   const u32 precision;
@@ -51,7 +52,9 @@ private:
 
   void handleStart() { this->armInterval(precision, tickCb, closeCb); }
 
-  auto bindInputs(const u8 n) -> Array<Consumer<T> *> {
+  using Channel = IndexedMemberConsumer<&Aggregate::handleChannel>;
+
+  auto bindInputs(const u8 n) -> std::vector<Consumer<T> *> {
     values.assign(n, nan_of<T>());
     inputs.clear();
     inputs.reserve(n);
@@ -82,8 +85,8 @@ private:
 
   VectorizedInput<Consumer<T>> downstream{};
 
-  Array<T>                                                 values{};
-  Array<IndexedMemberConsumer<&Aggregate::handleChannel>>  inputs{};
+  std::vector<T>                                           values{};
+  std::vector<Channel>                                     inputs{};
   MemberConsumer<&Aggregate::handleTick>                   tickCb{this};
   MemberConsumer<&Aggregate::handleStart>                  startCb{this};
   Maybe<typename NativeBlock<I, O>::ClearIntervalCallback> closeCb{};

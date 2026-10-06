@@ -1,6 +1,7 @@
 #pragma once
 
 #include <base/native_block.hpp>
+#include <vector>
 
 namespace push {
 
@@ -38,7 +39,9 @@ public:
         period(period),
         precision(precision) {}
 
-  O apply() override { return O{.channels = VectorizedOutput<Consumer<T>>::template from<&Scope::makeChannels>(this)}; }
+  O apply() override {
+    return O{.channels = [this](const u8 count) { return makeChannels(count); }};
+  }
 
   const u32 period;
   const u32 precision;
@@ -52,7 +55,9 @@ private:
     this->sendValue(channel, value);
   }
 
-  auto makeChannels(const u8 n) -> Array<Consumer<T> *> {
+  using Channel = IndexedMemberConsumer<&Scope::handlePush>;
+
+  auto makeChannels(const u8 n) -> std::vector<Consumer<T> *> {
     channels.clear();
     channels.reserve(n);
     for (u8 i = 0; i < n; ++i) {
@@ -61,7 +66,7 @@ private:
     return this->template pointersOf<T>(channels);
   }
 
-  Array<IndexedMemberConsumer<&Scope::handlePush>> channels{};
+  std::vector<Channel> channels{};
 };
 
 } // namespace push

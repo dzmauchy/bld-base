@@ -1,7 +1,8 @@
 #pragma once
 
 #include <base/native_block.hpp>
-#include <core/move.hpp>
+#include <utility>
+#include <vector>
 
 namespace push {
 
@@ -28,18 +29,18 @@ public:
    *   @icon push.gpio_in.svg
    *   @control text
    */
-  explicit GpioIn(const u32 blockId,
-                  const u16 port = 0,
-                  Array<u8> pins = {0})
+  explicit GpioIn(const u32       blockId,
+                  const u16       port = 0,
+                  std::vector<u8> pins = {0})
       : NativeBlock<I,
                     void>(blockId),
         port(port),
-        pins(move(pins)) {}
+        pins(std::move(pins)) {}
 
   void apply(I input) override {
     connected = static_cast<u8>(input.pins.size() < kMaxPins ? input.pins.size() : kMaxPins);
     for (u8 i = 0; i < connected; ++i) {
-      pinConsumers[i] = move(input.pins[i]);
+      pinConsumers[i] = std::move(input.pins[i]);
     }
     for (u32 i = 0; i < pins.size() && i < kMaxPins; ++i) {
       slots[i].parent = this;
@@ -51,8 +52,8 @@ public:
     this->onClose(closeCb);
   }
 
-  const u16       port;
-  const Array<u8> pins;
+  const u16             port;
+  const std::vector<u8> pins;
 
   static constexpr u8 kMaxPins = 8;
 

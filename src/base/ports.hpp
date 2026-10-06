@@ -2,6 +2,7 @@
 
 #include <core/array.hpp>
 #include <core/types.hpp>
+#include <vector>
 
 namespace push {
 
@@ -34,7 +35,7 @@ template <typename T> struct GpioInput {
    * @brief Streams per configured pin, in constructor pin order; empty entries leave pins disconnected.
    * @image push.gpio_in.svg
    */
-  Array<VectorizedInput<Consumer<T>>> pins{};
+  std::vector<VectorizedInput<Consumer<T>>> pins{};
 };
 
 } // namespace push

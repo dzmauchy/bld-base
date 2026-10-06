@@ -187,6 +187,58 @@ TEST_CASE_TEMPLATE("Push wiring works through typed block references", T, f32, f
   MockRuntime::close();
 }
 
+TEST_CASE_TEMPLATE("Scope rebuilds channel vectors when rebound", T, f32, f64) {
+  MockRuntime::reset();
+  using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32Output, push::f_64::sinks::ScopeF64Output>;
+  push::Scope<ScopeOutput> scope(0);
+  const auto output = scope.apply();
+  for (const u8 count : {u8{0}, u8{2}, u8{255}, u8{1}, u8{0}}) {
+    CAPTURE(count);
+    const auto channels = output.channels(count);
+    REQUIRE_EQ(channels.size(), count);
+    for (u32 i = 0; i < channels.size(); ++i) {
+      const auto value = static_cast<T>(i + 1);
+      (*channels[i])(value);
+      if constexpr (std::is_same_v<T, f32>) {
+        CHECK_EQ(MockRuntime::lastF32(0, static_cast<u8>(i)), value);
+      } else {
+        CHECK_EQ(MockRuntime::lastF64(0, static_cast<u8>(i)), value);
+      }
+    }
+  }
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Aggregation supports channel vectors at channel count boundaries", T, f32, f64) {
+  using ScopeOutput = std::conditional_t<std::is_same_v<T, f32>, push::f_32::sinks::ScopeF32Output, push::f_64::sinks::ScopeF64Output>;
+  using Sum = std::conditional_t<std::is_same_v<T, f32>, push::f_32::transformers::SumF32, push::f_64::transformers::SumF64>;
+  for (const u8 count : {u8{0}, u8{255}}) {
+    CAPTURE(count);
+    MockRuntime::reset();
+    push::Scope<ScopeOutput> scope(0);
+    Sum sum(1);
+    const auto channels = sum.apply({.downstream = scope.apply().channels(1)}).channels(count);
+    REQUIRE_EQ(channels.size(), count);
+    for (auto *channel : channels) {
+      (*channel)(T{1});
+    }
+    MockRuntime::start();
+    MockRuntime::tick();
+    if constexpr (std::is_same_v<T, f32>) {
+      CHECK_EQ(MockRuntime::hasF32(0, 0), count != 0);
+      if (count != 0) {
+        CHECK_EQ(MockRuntime::lastF32(0, 0), static_cast<T>(count));
+      }
+    } else {
+      CHECK_EQ(MockRuntime::hasF64(0, 0), count != 0);
+      if (count != 0) {
+        CHECK_EQ(MockRuntime::lastF64(0, 0), static_cast<T>(count));
+      }
+    }
+    MockRuntime::close();
+  }
+}
+
 TEST_CASE("GPIO input preserves disconnected pin positions and fanout") {
   MockRuntime::reset();
   push::f_32::sinks::ScopeF32 scope(0);
@@ -226,4 +278,3 @@ TEST_CASE_TEMPLATE("A block returns independent vectorized and scalar output fie
   }
   MockRuntime::close();
 }
-
