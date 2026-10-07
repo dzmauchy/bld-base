@@ -201,6 +201,44 @@ npm run typecheck
 `npm test` runs the metadata checks, and `npm run build:meta` generates metadata.
 The scripts still run directly with Node.js without a compilation step.
 
+## Freestanding containers
+
+`core/lib.hpp` provides `core::function<R(Args...)>` and a fixed-size, contiguous
+`core::array<T>` for freestanding applications. On Wasm it includes `wasm.hpp`
+and uses clang-wasm's TLSF-backed new/delete, including aligned allocation.
+It needs no libc++, RTTI, or exception support. Native builds use `<new>`.
+The existing block headers still use the standard library.
+
+Functions own copyable lambdas, functors, or function pointers. Copies duplicate
+captured values; moves transfer ownership and empty the source. An empty invocation
+traps. An array's size is chosen at construction, with no `N` template parameter
+and no growth or resize operations. Arrays support count/value construction,
+C arrays, pointer ranges, copy/move, indexing, iteration, and fill. Copies own
+separate storage; moves transfer the buffer and empty the source. Assignment
+replaces the owned buffer. Elements are destroyed when their buffer is released.
+`at()` checks bounds and traps on invalid indices; `operator[]` requires a valid
+index. Size overflow and Wasm allocation failure also trap.
+
+```cpp
+#include <core/lib.hpp>
+
+core::function<int(int)> twice = [](int value) { return value * 2; };
+core::array<int> zeros(3);              // Three zero-initialized values.
+core::array<int> repeated(3, 7);        // Three sevens.
+core::array<int> values{{1, 2, 3}};     // Copy a C array of values.
+values[0] = twice(values[0]);
+```
+
+Native tests cover these types along with the blocks. Run the freestanding
+compile/link/runtime checks against a built clang-wasm sysroot with:
+
+```sh
+node scripts/test-core-lib.mjs ../clang-wasm/dist/sysroot clang++
+```
+
+This links only compiler-rt (which bundles the TLSF runtime), checks ownership
+and alignment repeatedly, and verifies traps and the absence of host imports.
+
 ## Host bindings
 
 The host supplies the `extern "C"` functions declared in `core/hal.hpp` directly.
