@@ -15,15 +15,20 @@ const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'base-core-lib-'));
 
 try {
     const wasm = path.join(temporary, 'core-lib.wasm');
-    execFileSync(compiler, [
+    const flags = [
         '--target=wasm32-unknown-unknown', '-std=c++23', '-O2',
         '-Wall', '-Wextra', '-Wpedantic', '-Werror',
         '-ffreestanding', '-nostdinc++', '-nostdlib', '-fno-exceptions',
         '-fno-rtti', '-fno-threadsafe-statics', `--sysroot=${sysroot}`,
         `-resource-dir=${resource}`, `-I${path.join(root, 'src')}`,
-        path.join(root, 'tests/freestanding/core_lib.cpp'),
+    ];
+    const linkFlags = [
         `-L${path.join(resource, 'lib/wasi')}`, '-lclang_rt.builtins-wasm32',
-        '-Wl,--no-entry', '-Wl,--export=core_lib_checks',
+        '-Wl,--no-entry',
+    ];
+    execFileSync(compiler, [...flags,
+        path.join(root, 'tests/freestanding/core_lib.cpp'), ...linkFlags,
+        '-Wl,--export=core_lib_checks',
         '-Wl,--export=core_lib_empty_function', '-Wl,--export=core_lib_invalid_index',
         '-Wl,--export=core_lib_size_overflow', '-o', wasm,
     ], {stdio: 'inherit'});
@@ -35,6 +40,20 @@ try {
     for (const name of ['core_lib_empty_function', 'core_lib_invalid_index', 'core_lib_size_overflow'])
         assert.throws(() => instance.exports[name](), WebAssembly.RuntimeError, `${name} must trap`);
     console.log('Core lib Wasm checks passed: fixed-size arrays, TLSF ownership, copies, alignment, and traps.');
+    const blocksWasm = path.join(temporary, 'blocks.wasm');
+    execFileSync(compiler, [...flags,
+        path.join(root, 'tests/freestanding/blocks.cpp'), ...linkFlags,
+        '-Wl,--export=block_checks', '-o', blocksWasm,
+    ], {stdio: 'inherit'});
+    const blocksModule = await WebAssembly.compile(fs.readFileSync(blocksWasm));
+    assert.deepEqual(WebAssembly.Module.imports(blocksModule).map(({module, name}) => `${module}.${name}`).sort(),
+        ['env.cos', 'env.fmod', 'env.sin']);
+    const blocks = await WebAssembly.instantiate(blocksModule, {env: {
+        sin: Math.sin, cos: Math.cos, fmod: (value, divisor) => value % divisor,
+    }});
+    for (let i = 0; i < 1000; ++i)
+        assert.equal(blocks.exports.block_checks(), 0, 'Block check failed at this source line');
+    console.log('Block Wasm checks passed: channel storage, shared state, math imports, timers, and GPIO.');
 } finally {
     fs.rmSync(temporary, {recursive: true, force: true});
 }

@@ -358,8 +358,8 @@ TEST_SUITE("GpioInF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "TrueIsOneOnScope") {
     auto scope = ScopeF32(0);
     auto sinks = scope().channels(1);
-    auto gpio = GpioInF32(1, 0, {0});
-    gpio({.pins = {sinks}});
+    auto gpio = GpioInF32(1, 0, core::array<u8>(1, u8{0}));
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{sinks}}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(0, 0, true);
@@ -371,7 +371,7 @@ TEST_SUITE("GpioInF32") {
     auto scope = ScopeF32(0);
     auto sinks = scope().channels(1);
     auto gpio = GpioInF32(1);
-    gpio({.pins = {sinks}});
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{sinks}}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(0, 0, false);
@@ -382,8 +382,8 @@ TEST_SUITE("GpioInF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "IgnoresUnconfiguredPins") {
     auto scope = ScopeF32(0);
     auto sinks = scope().channels(1);
-    auto gpio = GpioInF32(1, 0, {2, 4});
-    gpio({.pins = {sinks, {}}});
+    auto gpio = GpioInF32(1, 0, core::array<u8>{{2, 4}});
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{sinks, {}}}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(0, 0, true);
@@ -394,8 +394,9 @@ TEST_SUITE("GpioInF32") {
   TEST_CASE_FIXTURE(BlocksFixture, "RoutesMultiplePins") {
     auto scope = ScopeF32(0);
     auto sinks = scope().channels(2);
-    auto gpio = GpioInF32(1, 7, {1, 3});
-    gpio({.pins = {std::array{sinks[0]}, std::array{sinks[1]}}});
+    auto gpio = GpioInF32(1, 7, core::array<u8>{{1, 3}});
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{
+              {std::array{sinks[0]}, std::array{sinks[1]}}}});
 
     MockRuntime::start();
     MockRuntime::emitGpio(7, 1, true);
@@ -409,7 +410,7 @@ TEST_SUITE("GpioInF32") {
     auto scope = ScopeF32(0);
     auto sinks = scope().channels(1);
     auto gpio = GpioInF32(1);
-    gpio({.pins = {sinks}});
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{sinks}}});
 
     MockRuntime::start();
     CHECK_EQ(MockRuntime::activeGpioCount(), 1);

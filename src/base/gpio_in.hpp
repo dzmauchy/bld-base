@@ -1,28 +1,24 @@
 #pragma once
 
-#include <algorithm>
 #include <core/hal.hpp>
-#include <functional>
-#include <memory>
-#include <utility>
-#include <vector>
 
 namespace push::detail {
 
 template <typename I>
-std::function<void(I)> makeGpioIn(const u32,
-                                  const u16       port,
-                                  std::vector<u8> pins) {
+core::function<void(I)> makeGpioIn(const u32,
+                                   const u16       port,
+                                   core::array<u8> pins) {
   using T = I::Value;
   constexpr u8 maxPins = 8;
-  const auto   count = std::min(pins.size(), static_cast<std::size_t>(maxPins));
-  auto pinConsumers = std::make_shared<std::vector<std::vector<std::function<void(T)> *>>>();
-  auto callbacks = std::make_shared<std::vector<std::function<void()>>>();
-  callbacks->reserve(count);
+  const auto   count = pins.size() < maxPins ? pins.size() : maxPins;
+  auto pinConsumers = core::make_shared<core::array<core::array<core::function<void(T)> *>>>();
+  auto callbacks = core::make_shared<core::array<core::function<void()>>>(count);
   for (u32 i = 0; i < count; ++i) {
     const auto pin = pins[i];
-    const auto index = static_cast<u32>(std::find(pins.begin(), pins.end(), pin) - pins.begin());
-    callbacks->emplace_back([pinConsumers, port, pin, index] {
+    u32        index = 0;
+    while (pins[index] != pin)
+      ++index;
+    (*callbacks)[i] = [pinConsumers, port, pin, index] {
       if (index < pinConsumers->size()) {
         const auto value = read_gpio(port, pin) ? T{1} : T{0};
         for (auto *sink : (*pinConsumers)[index]) {
@@ -30,23 +26,25 @@ std::function<void(I)> makeGpioIn(const u32,
             (*sink)(value);
         }
       }
-    });
+    };
   }
-  auto handles = std::make_shared<std::vector<u32>>();
-  auto close = std::make_shared<std::function<void()>>([handles] {
+  auto handles = core::make_shared<core::array<u32>>();
+  auto close = core::make_shared<core::function<void()>>([handles] {
     for (const auto handle : *handles)
       clear_gpio(handle);
   });
-  return [port, pins = std::move(pins), pinConsumers, callbacks, handles, close](I input) {
-    if (input.pins.size() > maxPins)
-      input.pins.resize(maxPins);
-    pinConsumers->clear();
-    pinConsumers->reserve(input.pins.size());
-    for (const auto group : input.pins)
-      pinConsumers->emplace_back(group.begin(), group.end());
+  return [port, pins = core::detail::move(pins), pinConsumers, callbacks, handles, close](I input) {
+    const auto count = input.pins.size() < maxPins ? input.pins.size() : maxPins;
+    *pinConsumers = core::array<core::array<core::function<void(T)> *>>(count);
+    for (core::size_t i = 0; i < count; ++i)
+      (*pinConsumers)[i] = core::array<core::function<void(T)> *>(input.pins[i]);
+    core::array<u32> registered(handles->size() + callbacks->size());
+    for (core::size_t i = 0; i < handles->size(); ++i)
+      registered[i] = (*handles)[i];
     for (u32 i = 0; i < callbacks->size(); ++i) {
-      handles->push_back(set_gpio(port, pins[i], &(*callbacks)[i]));
+      registered[handles->size() + i] = set_gpio(port, pins[i], &(*callbacks)[i]);
     }
+    *handles = core::detail::move(registered);
     on_close(close.get());
   };
 }

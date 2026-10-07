@@ -218,6 +218,16 @@ public:
     initialize(first == last ? 0 : static_cast<size_t>(last - first),
                [first](T *slot, size_t i) { ::new (static_cast<void *>(slot)) T(first[i]); });
   }
+  template <typename Range>
+    requires(!detail::same<detail::value_type<Range>,
+                           array> &&
+             requires(const Range &values) {
+               detail::accept<const T *>(values.data());
+               values.size();
+             })
+  array(const Range &values)
+      : array(values.data(),
+              values.size() ? values.data() + values.size() : values.data()) {}
   template <size_t N>
   array(const T (&values)[N])
       : array(values,
@@ -295,5 +305,98 @@ public:
 template <typename T,
           size_t N>
 array(const T (&)[N]) -> array<T>;
+
+// A borrowed contiguous view. Owners and pointer targets must outlive the view.
+template <typename T> class span {
+  T     *data_ = nullptr;
+  size_t size_ = 0;
+
+public:
+  span() noexcept = default;
+  span(T     *data,
+       size_t count) noexcept
+      : data_(data),
+        size_(count) {}
+  template <typename U,
+            size_t N>
+    requires requires(U *data) { detail::accept<T *>(data); }
+  span(U (&values)[N]) noexcept
+      : data_(values),
+        size_(N) {}
+  template <typename Range>
+    requires requires(Range &values) {
+      detail::accept<T *>(values.data());
+      values.size();
+    }
+  span(Range &&values) noexcept
+      : data_(values.data()),
+        size_(values.size()) {}
+  size_t size() const noexcept { return size_; }
+  bool   empty() const noexcept { return size_ == 0; }
+  T     *data() const noexcept { return data_; }
+  T     *begin() const noexcept { return data_; }
+  T     *end() const noexcept { return size_ ? data_ + size_ : data_; }
+  T     &operator[](size_t index) const noexcept { return data_[index]; }
+  span   first(size_t count) const noexcept {
+    if (count > size_)
+      __builtin_trap();
+    return {data_, count};
+  }
+};
+
+// Single-threaded shared ownership keeps block state stable across callable copies.
+template <typename T> class shared_ptr {
+  struct storage {
+    size_t owners = 1;
+    T      value;
+    template <typename... Args> storage(Args &&...args) : value(detail::forward<Args>(args)...) {}
+  };
+  storage *storage_ = nullptr;
+
+public:
+  template <typename... Args> static shared_ptr make(Args &&...args) {
+    shared_ptr result;
+    result.storage_ = new storage(detail::forward<Args>(args)...);
+    return result;
+  }
+  shared_ptr() noexcept = default;
+  shared_ptr(const shared_ptr &other) noexcept : storage_(other.storage_) {
+    if (storage_)
+      ++storage_->owners;
+  }
+  shared_ptr(shared_ptr &&other) noexcept : storage_(other.storage_) { other.storage_ = nullptr; }
+  ~shared_ptr() { reset(); }
+  shared_ptr &operator=(const shared_ptr &other) noexcept {
+    shared_ptr copy(other);
+    swap(copy);
+    return *this;
+  }
+  shared_ptr &operator=(shared_ptr &&other) noexcept {
+    shared_ptr moved(detail::move(other));
+    swap(moved);
+    return *this;
+  }
+  void reset() noexcept {
+    auto *storage = storage_;
+    storage_ = nullptr;
+    if (storage && --storage->owners == 0)
+      delete storage;
+  }
+  void swap(shared_ptr &other) noexcept {
+    auto *storage = storage_;
+    storage_ = other.storage_;
+    other.storage_ = storage;
+  }
+  T       *get() const noexcept { return storage_ ? &storage_->value : nullptr; }
+  T       &operator*() const noexcept { return *get(); }
+  T       *operator->() const noexcept { return get(); }
+  explicit operator bool() const noexcept { return storage_ != nullptr; }
+};
+
+template <typename T,
+          typename... Args>
+shared_ptr<T> make_shared(Args &&...args) {
+  return shared_ptr<T>::make(detail::forward<Args>(args)...);
+}
 
 } // namespace core

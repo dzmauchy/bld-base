@@ -1,8 +1,6 @@
 #pragma once
 
 #include <core/types.hpp>
-#include <functional>
-#include <vector>
 
 namespace push {
 
@@ -19,7 +17,7 @@ template <typename T> struct DownstreamInput {
    * @brief Streams that receive values emitted by the block.
    * @image consumer.svg
    */
-  VectorizedInput<std::function<void(T)>> downstream{};
+  VectorizedInput<core::function<void(T)>> downstream{};
 };
 
 /**
@@ -36,7 +34,7 @@ template <typename T> struct GpioInput {
    * disconnected.
    * @image push.gpio_in.svg
    */
-  std::vector<VectorizedInput<std::function<void(T)>>> pins{};
+  core::array<VectorizedInput<core::function<void(T)>>> pins{};
 };
 
 } // namespace push
@@ -56,7 +54,7 @@ struct CosF32Output {
    * @brief Accepts values whose cosine is pushed to the downstream streams.
    * @image cos.svg
    */
-  std::function<void(f32)> *consumer{nullptr};
+  core::function<void(f32)> *consumer{nullptr};
 };
 
 /**
@@ -72,7 +70,7 @@ struct SinF32Output {
    * @brief Accepts values whose sine is pushed to the downstream streams.
    * @image sin.svg
    */
-  std::function<void(f32)> *consumer{nullptr};
+  core::function<void(f32)> *consumer{nullptr};
 };
 
 /**
@@ -88,7 +86,7 @@ struct ProductF32Output {
    * @brief One vectorized output containing the consumers for the factors to multiply.
    * @image product.svg
    */
-  VectorizedOutput<std::function<void(f32)>> channels{};
+  VectorizedOutput<core::function<void(f32)>> channels{};
 };
 
 /**
@@ -104,7 +102,7 @@ struct SumF32Output {
    * @brief One vectorized output containing the consumers for the terms to add.
    * @image sum.svg
    */
-  VectorizedOutput<std::function<void(f32)>> channels{};
+  VectorizedOutput<core::function<void(f32)>> channels{};
 };
 
 } // namespace push::f_32::transformers
@@ -124,7 +122,7 @@ struct ScopeF32Output {
    * @brief One vectorized output containing independently observed scope consumers.
    * @image scope.svg
    */
-  VectorizedOutput<std::function<void(f32)>> channels{};
+  VectorizedOutput<core::function<void(f32)>> channels{};
 };
 
 } // namespace push::f_32::sinks
@@ -144,7 +142,7 @@ struct CosF64Output {
    * @brief Accepts values whose cosine is pushed to the downstream streams.
    * @image cos.svg
    */
-  std::function<void(f64)> *consumer{nullptr};
+  core::function<void(f64)> *consumer{nullptr};
 };
 
 /**
@@ -160,7 +158,7 @@ struct SinF64Output {
    * @brief Accepts values whose sine is pushed to the downstream streams.
    * @image sin.svg
    */
-  std::function<void(f64)> *consumer{nullptr};
+  core::function<void(f64)> *consumer{nullptr};
 };
 
 /**
@@ -176,7 +174,7 @@ struct ProductF64Output {
    * @brief One vectorized output containing the consumers for the factors to multiply.
    * @image product.svg
    */
-  VectorizedOutput<std::function<void(f64)>> channels{};
+  VectorizedOutput<core::function<void(f64)>> channels{};
 };
 
 /**
@@ -192,7 +190,7 @@ struct SumF64Output {
    * @brief One vectorized output containing the consumers for the terms to add.
    * @image sum.svg
    */
-  VectorizedOutput<std::function<void(f64)>> channels{};
+  VectorizedOutput<core::function<void(f64)>> channels{};
 };
 
 } // namespace push::f_64::transformers
@@ -212,7 +210,7 @@ struct ScopeF64Output {
    * @brief One vectorized output containing independently observed scope consumers.
    * @image scope.svg
    */
-  VectorizedOutput<std::function<void(f64)>> channels{};
+  VectorizedOutput<core::function<void(f64)>> channels{};
 };
 
 } // namespace push::f_64::sinks

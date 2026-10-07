@@ -1,5 +1,7 @@
 #pragma once
 
+#include <core/math.hpp>
+
 #include <base/aggregate.hpp>
 #include <base/constant.hpp>
 #include <base/gpio_in.hpp>
@@ -9,8 +11,6 @@
 #include <base/scope.hpp>
 #include <base/unary_transformer.hpp>
 #include <base/wave_gen.hpp>
-#include <cmath>
-#include <functional>
 
 namespace push::f_64::transformers {
 
@@ -19,9 +19,9 @@ namespace push::f_64::transformers {
  * @brief Computes the cosine of the input value
  * @image cos.svg
  */
-inline std::function<CosF64Output(DownstreamInput<f64>)> CosF64(const u32 blockId) {
+inline core::function<CosF64Output(DownstreamInput<f64>)> CosF64(const u32 blockId) {
   return detail::makeUnaryTransformer<DownstreamInput<f64>, CosF64Output>(
-      blockId, [](const f64 value) { return std::cos(value); });
+      blockId, [](const f64 value) { return core::cos(value); });
 }
 
 /**
@@ -29,9 +29,9 @@ inline std::function<CosF64Output(DownstreamInput<f64>)> CosF64(const u32 blockI
  * @brief Computes the sine of the input value
  * @image sin.svg
  */
-inline std::function<SinF64Output(DownstreamInput<f64>)> SinF64(const u32 blockId) {
+inline core::function<SinF64Output(DownstreamInput<f64>)> SinF64(const u32 blockId) {
   return detail::makeUnaryTransformer<DownstreamInput<f64>, SinF64Output>(
-      blockId, [](const f64 value) { return std::sin(value); });
+      blockId, [](const f64 value) { return core::sin(value); });
 }
 
 /**
@@ -46,8 +46,8 @@ inline std::function<SinF64Output(DownstreamInput<f64>)> SinF64(const u32 blockI
  *   @max 1000
  *   @step 1
  */
-inline std::function<ProductF64Output(DownstreamInput<f64>)> ProductF64(const u32 blockId,
-                                                                        const u32 precision = 10) {
+inline core::function<ProductF64Output(DownstreamInput<f64>)> ProductF64(const u32 blockId,
+                                                                         const u32 precision = 10) {
   return detail::makeAggregate<DownstreamInput<f64>, ProductF64Output>(
       blockId, precision, [](const f64 acc, const f64 value) { return acc * value; });
 }
@@ -64,8 +64,8 @@ inline std::function<ProductF64Output(DownstreamInput<f64>)> ProductF64(const u3
  *   @max 1000
  *   @step 1
  */
-inline std::function<SumF64Output(DownstreamInput<f64>)> SumF64(const u32 blockId,
-                                                                const u32 precision = 10) {
+inline core::function<SumF64Output(DownstreamInput<f64>)> SumF64(const u32 blockId,
+                                                                 const u32 precision = 10) {
   return detail::makeAggregate<DownstreamInput<f64>, SumF64Output>(
       blockId, precision, [](const f64 acc, const f64 value) { return acc + value; });
 }
@@ -93,9 +93,9 @@ namespace push::f_64::sinks {
  *   @max 1000
  *   @step 1
  */
-inline std::function<ScopeF64Output()> ScopeF64(const u32 blockId,
-                                                const u32 period = 60,
-                                                const u32 precision = 10) {
+inline core::function<ScopeF64Output()> ScopeF64(const u32 blockId,
+                                                 const u32 period = 60,
+                                                 const u32 precision = 10) {
   return detail::makeScope<ScopeF64Output>(blockId, period, precision);
 }
 
@@ -119,10 +119,12 @@ namespace push::f_64::sources {
  *   @icon push.gpio_in.svg
  *   @control text
  */
-inline std::function<void(GpioInput<f64>)> GpioInF64(const u32       blockId,
-                                                     const u16       port = 0,
-                                                     std::vector<u8> pins = {0}) {
-  return detail::makeGpioIn<GpioInput<f64>>(blockId, port, std::move(pins));
+inline core::function<void(GpioInput<f64>)>
+GpioInF64(const u32       blockId,
+          const u16       port = 0,
+          core::array<u8> pins = core::array<u8>(1,
+                                                 u8{0})) {
+  return detail::makeGpioIn<GpioInput<f64>>(blockId, port, core::detail::move(pins));
 }
 
 /**
@@ -134,8 +136,8 @@ inline std::function<void(GpioInput<f64>)> GpioInF64(const u32       blockId,
  *   @icon push.const.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f64>)> ConstF64(const u32 blockId,
-                                                          const f64 value = 1) {
+inline core::function<void(DownstreamInput<f64>)> ConstF64(const u32 blockId,
+                                                           const f64 value = 1) {
   return detail::makeConstant<DownstreamInput<f64>>(blockId, value);
 }
 
@@ -165,13 +167,14 @@ inline std::function<void(DownstreamInput<f64>)> ConstF64(const u32 blockId,
  *   @icon phase.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f64>)> CosGenF64(const u32 blockId,
-                                                           const u32 precision = 10,
-                                                           const f64 frequency = 1,
-                                                           const f64 amplitude = 1,
-                                                           const f64 phase = 0) {
-  return detail::makeWaveGen<DownstreamInput<f64>>(blockId, precision, frequency, amplitude, phase,
-                                                   [](const f64 angle) { return std::cos(angle); });
+inline core::function<void(DownstreamInput<f64>)> CosGenF64(const u32 blockId,
+                                                            const u32 precision = 10,
+                                                            const f64 frequency = 1,
+                                                            const f64 amplitude = 1,
+                                                            const f64 phase = 0) {
+  return detail::makeWaveGen<DownstreamInput<f64>>(
+      blockId, precision, frequency, amplitude, phase,
+      [](const f64 angle) { return core::cos(angle); });
 }
 
 /**
@@ -200,13 +203,14 @@ inline std::function<void(DownstreamInput<f64>)> CosGenF64(const u32 blockId,
  *   @icon phase.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f64>)> SinGenF64(const u32 blockId,
-                                                           const u32 precision = 10,
-                                                           const f64 frequency = 1,
-                                                           const f64 amplitude = 1,
-                                                           const f64 phase = 0) {
-  return detail::makeWaveGen<DownstreamInput<f64>>(blockId, precision, frequency, amplitude, phase,
-                                                   [](const f64 angle) { return std::sin(angle); });
+inline core::function<void(DownstreamInput<f64>)> SinGenF64(const u32 blockId,
+                                                            const u32 precision = 10,
+                                                            const f64 frequency = 1,
+                                                            const f64 amplitude = 1,
+                                                            const f64 phase = 0) {
+  return detail::makeWaveGen<DownstreamInput<f64>>(
+      blockId, precision, frequency, amplitude, phase,
+      [](const f64 angle) { return core::sin(angle); });
 }
 
 /**
@@ -225,9 +229,9 @@ inline std::function<void(DownstreamInput<f64>)> SinGenF64(const u32 blockId,
  *   @icon amplitude.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f64>)> RandGenF64(const u32 blockId,
-                                                            const u32 precision = 10,
-                                                            const f64 amplitude = 1) {
+inline core::function<void(DownstreamInput<f64>)> RandGenF64(const u32 blockId,
+                                                             const u32 precision = 10,
+                                                             const f64 amplitude = 1) {
   return detail::makeRandGen<DownstreamInput<f64>>(blockId, precision, amplitude);
 }
 
@@ -257,12 +261,13 @@ inline std::function<void(DownstreamInput<f64>)> RandGenF64(const u32 blockId,
  *   @icon phase.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f64>)> PulseGenF64(const u32 blockId,
-                                                             const f64 dutyCycle = f64{0.5},
-                                                             const f64 amplitude = 1,
-                                                             const f64 frequency = 1,
-                                                             const f64 phase = 0) {
-  return detail::makePulseGen<DownstreamInput<f64>>(blockId, dutyCycle, amplitude, frequency, phase);
+inline core::function<void(DownstreamInput<f64>)> PulseGenF64(const u32 blockId,
+                                                              const f64 dutyCycle = f64{0.5},
+                                                              const f64 amplitude = 1,
+                                                              const f64 frequency = 1,
+                                                              const f64 phase = 0) {
+  return detail::makePulseGen<DownstreamInput<f64>>(blockId, dutyCycle, amplitude, frequency,
+                                                    phase);
 }
 
 } // namespace push::f_64::sources

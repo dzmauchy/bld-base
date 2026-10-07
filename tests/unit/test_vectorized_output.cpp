@@ -1,6 +1,5 @@
 #include <array>
 #include <doctest/doctest.h>
-#include <functional>
 
 #include <core/types.hpp>
 #include <vector>
@@ -43,21 +42,18 @@ static_assert(!CanBindOutput<f32,
 static_assert(CanBindOutput<i32,
                             ChannelCallable>);
 static_assert(std::is_same_v<VectorizedInput<i32>,
-                             std::span<i32 *const>>);
+                             core::span<i32 *const>>);
 static_assert(std::is_same_v<VectorizedOutput<i32>,
-                             std::function<std::span<i32 *const>(u8)>>);
+                             core::function<core::span<i32 *const>(u8)>>);
 
 } // namespace
 
-TEST_CASE("Vectorized output throws bad_function_call when unbound") {
+TEST_CASE("Vectorized output is empty when unbound") {
   const VectorizedOutput<i32> output;
   CHECK_FALSE(static_cast<bool>(output));
-  CHECK_THROWS_AS(output(0), std::bad_function_call);
-  CHECK_THROWS_AS(output(255), std::bad_function_call);
 
   const VectorizedOutput<i32> nullFunction = nullptr;
   CHECK_FALSE(static_cast<bool>(nullFunction));
-  CHECK_THROWS_AS(nullFunction(2), std::bad_function_call);
 }
 
 TEST_CASE("Vectorized output forwards channel counts to a member function") {

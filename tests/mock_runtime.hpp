@@ -1,7 +1,6 @@
 #pragma once
 
 #include <core/types.hpp>
-#include <functional>
 #include <map>
 #include <utility>
 #include <vector>
@@ -31,17 +30,17 @@ public:
   static auto activeGpioCount() -> u32;
   static auto intervalPeriodAt(u32 index) -> u32;
 
-  void handleOnStart(std::function<void()> *callback);
-  void handleOnClose(std::function<void()> *callback);
-  void handleOnStop(std::function<void()> *callback);
-  auto handleSetInterval(u32                    milliseconds,
-                         std::function<void()> *callback) -> u32;
+  void handleOnStart(core::function<void()> *callback);
+  void handleOnClose(core::function<void()> *callback);
+  void handleOnStop(core::function<void()> *callback);
+  auto handleSetInterval(u32                     milliseconds,
+                         core::function<void()> *callback) -> u32;
   void handleClearInterval(u32 intervalId);
   auto handleReadGpio(u32 port,
                       u8  pin) const -> bool;
-  auto handleSetGpio(u32                    port,
-                     u8                     pin,
-                     std::function<void()> *callback) -> u32;
+  auto handleSetGpio(u32                     port,
+                     u8                      pin,
+                     core::function<void()> *callback) -> u32;
   void handleClearGpio(u32 gpioId);
   void handleSendGpio(u32  port,
                       u8   pin,
@@ -58,33 +57,33 @@ public:
 
 private:
   struct Interval {
-    u32                    id;
-    u32                    period;
-    std::function<void()> *callback;
-    bool                   active;
+    u32                     id;
+    u32                     period;
+    core::function<void()> *callback;
+    bool                    active;
   };
 
   struct GpioListener {
-    u32                    id;
-    u32                    port;
-    u8                     pin;
-    std::function<void()> *callback;
-    bool                   active;
+    u32                     id;
+    u32                     port;
+    u8                      pin;
+    core::function<void()> *callback;
+    bool                    active;
   };
 
   void fireGpio(u32 port,
                 u8  pin);
 
-  std::vector<std::function<void()> *> start_{};
-  std::vector<std::function<void()> *> close_{};
-  std::vector<std::function<void()> *> stop_{};
-  std::vector<Interval>                intervals_{};
-  std::vector<GpioListener>            gpio_{};
-  std::map<std::pair<u32, u8>, bool>   gpioValues_{};
-  std::map<std::pair<u32, u8>, f32>    valuesF32_{};
-  std::map<std::pair<u32, u8>, f64>    valuesF64_{};
-  u32                                  nextIntervalId_{1};
-  u32                                  nextGpioId_{1};
-  u64                                  now_{0};
-  f32                                  random_{0};
+  std::vector<core::function<void()> *> start_{};
+  std::vector<core::function<void()> *> close_{};
+  std::vector<core::function<void()> *> stop_{};
+  std::vector<Interval>                 intervals_{};
+  std::vector<GpioListener>             gpio_{};
+  std::map<std::pair<u32, u8>, bool>    gpioValues_{};
+  std::map<std::pair<u32, u8>, f32>     valuesF32_{};
+  std::map<std::pair<u32, u8>, f64>     valuesF64_{};
+  u32                                   nextIntervalId_{1};
+  u32                                   nextGpioId_{1};
+  u64                                   now_{0};
+  f32                                   random_{0};
 };

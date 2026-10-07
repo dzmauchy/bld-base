@@ -13,12 +13,6 @@ interface ClangFileSystem {
 
     readFile(path: string): Uint8Array;
 
-    getStream(fd: number): { fd: number };
-
-    open(path: string, mode: string): { fd: number };
-
-    close(stream: { fd: number }): void;
-
     analyzePath(path: string): { exists: boolean };
 }
 
@@ -132,25 +126,12 @@ async function compile(assets: string): Promise<Metadata> {
     }
     if (!sources.size) throw new Error('No .hpp files found under src/');
     const headers = [...sources.keys()].sort();
-    FS.writeFile('/project/meta.cpp', headers.map(file => `#include "${file}"`).join('\n'));
-
-    // Write stdout directly into MEMFS: print() loses the final JSON brace because
-    // Clang does not append a newline and Emscripten's TTY buffers incomplete lines.
-    FS.close(FS.getStream(1));
-    const stdout = FS.open('/ast.json', 'w');
-    if (stdout.fd !== 1) throw new Error('Cannot redirect clang stdout');
-    const status = clang.callMain([
-        '-cc1', '-triple', 'wasm32-unknown-emscripten', '-std=c++23', '-x', 'c++',
-        '-isysroot', '/sysroot', '-resource-dir', '/sysroot/lib/clang/23',
-        '-isystem', '/sysroot/include/c++/v1',
-        '-isystem', '/sysroot/lib/clang/23/include',
-        '-isystem', '/sysroot/include/compat', // Emscripten's xlocale.h and C header shims.
-        '-isystem', '/sysroot/include',
-        '-I', '/project/src', '-fparse-all-comments', '-ast-dump=json', '/project/meta.cpp',
-    ]);
-    FS.close(stdout);
+    // The new launcher writes <stem>.json and <stem>.o. Keep the project includes
+    // after a declaration so its PCH preamble does not hide their AST declarations.
+    FS.writeFile('/project/meta.cpp', 'static_assert(true);\n' + headers.map(file => `#include "${file}"`).join('\n'));
+    const status = clang.callMain(['-I', '/project/src', '-o', '/project/build', '/project/meta.cpp']);
     if (status !== 0) throw new Error(`clang failed with exit code ${status}`);
-    return extractMetadata(readDeclarationAst(FS.readFile('/ast.json')), sources);
+    return extractMetadata(readDeclarationAst(FS.readFile('/project/build/meta.json')), sources);
 }
 
 // Parse declarations directly from bytes: factory instantiations can make a full
@@ -283,8 +264,9 @@ function installSysroot(FS: ClangFileSystem, archive: Buffer): void {
         }
         offset += 512 + Math.ceil(size / 512) * 512;
     }
-    if (!FS.analyzePath('/sysroot/include/c++/v1/type_traits').exists) {
-        throw new Error('sysroot.tgz does not contain the expected C++ headers');
+    if (!FS.analyzePath('/sysroot/include/wasm.hpp').exists ||
+        !FS.analyzePath('/sysroot/lib/clang/23/include/stddef.h').exists) {
+        throw new Error('sysroot.tgz does not contain the expected Wasm runtime and Clang resource headers');
     }
 }
 
@@ -413,6 +395,7 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
 
     function isPortStruct(spelling: string, scope: string[], seen = new Set<Declaration>()): boolean {
         if (spelling === 'void') return true;
+        if (/^core::(?:array|span|function)\s*</.test(spelling)) return false;
         const declaration = resolve(spelling, scope);
         if (!declaration || seen.has(declaration)) return false;
         seen.add(declaration);
@@ -422,10 +405,10 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
         return declaration.node.kind.endsWith('RecordDecl') && !!declaration.node.completeDefinition;
     }
 
-    // Factories return std::function<O(I)> or std::function<O()>; follow named aliases too.
+    // Factories return core::function<O(I)> or core::function<O()>; follow named aliases too.
     function factoryPorts(spelling: string, scope: string[], seen = new Set<Declaration>()):
         { input: AstType; output: AstType; scope: string[] } | undefined {
-        if (/^std::(?:\w+::)*function\s*</.test(spelling)) {
+        if (/^(?:core::|std::(?:\w+::)*)function\s*</.test(spelling)) {
             const signature = firstTypeArgument(spelling);
             const parts = signature ? signatureParts(signature) : undefined;
             if (!parts || !isPortStruct(parts.input, scope) || !isPortStruct(parts.result, scope)) return undefined;
@@ -460,9 +443,9 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
                 seen.add(declaration);
                 if (isVectorized(declaration.node.type, declaration.scope, seen)) return true;
             }
-            if (/^std::(?:\w+::)*(?:vector|span|function)$/.test(name)) {
+            if (/^(?:core::(?:array|span|function)|std::(?:\w+::)*(?:vector|span|function))$/.test(name)) {
                 const argument = firstTypeArgument(spelling);
-                if (argument && (/::(?:vector|span)$/.test(name) && /\*\s*(?:(?:const|volatile)\s*)*$/.test(argument) ||
+                if (argument && (/::(?:array|vector|span)$/.test(name) && /\*\s*(?:(?:const|volatile)\s*)*$/.test(argument) ||
                     isVectorized({qualType: argument}, scope, seen))) return true;
             }
         }

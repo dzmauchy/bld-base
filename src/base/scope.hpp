@@ -1,35 +1,29 @@
 #pragma once
 
 #include <core/hal.hpp>
-#include <functional>
-#include <memory>
-#include <type_traits>
-#include <vector>
 
 namespace push::detail {
 
 template <typename O>
-std::function<O()> makeScope(const u32 blockId,
-                             const u32 = 60,
-                             const u32 = 10) {
+core::function<O()> makeScope(const u32 blockId,
+                              const u32 = 60,
+                              const u32 = 10) {
   using T = O::Value;
-  auto consumers = std::make_shared<std::vector<std::function<void(T)>>>();
-  auto channelPointers = std::make_shared<std::vector<std::function<void(T)> *>>();
-  VectorizedOutput<std::function<void(T)>> channels =
+  auto consumers = core::make_shared<core::array<core::function<void(T)>>>();
+  auto channelPointers = core::make_shared<core::array<core::function<void(T)> *>>();
+  VectorizedOutput<core::function<void(T)>> channels =
       [blockId, consumers,
-       channelPointers](const u8 count) -> std::span<std::function<void(T)> *const> {
-    consumers->clear();
-    consumers->reserve(count);
-    channelPointers->clear();
-    channelPointers->reserve(count);
+       channelPointers](const u8 count) -> core::span<core::function<void(T)> *const> {
+    *consumers = core::array<core::function<void(T)>>(count);
+    *channelPointers = core::array<core::function<void(T)> *>(count);
     for (u8 i = 0; i < count; ++i) {
-      consumers->emplace_back([blockId, i](const T value) {
-        if constexpr (std::is_same_v<T, f32>)
+      (*consumers)[i] = [blockId, i](const T value) {
+        if constexpr (core::detail::same<T, f32>)
           send_value_f32(blockId, i, value);
         else
           send_value_f64(blockId, i, value);
-      });
-      channelPointers->push_back(&consumers->back());
+      };
+      (*channelPointers)[i] = &(*consumers)[i];
     }
     return *channelPointers;
   };

@@ -35,11 +35,11 @@ TEST_CASE_TEMPLATE("Host C bindings drive time, callbacks, GPIO and observations
   MockRuntime::reset();
   auto scope = Scope(0, 60, 10);
   auto sine = Sine(1, 25, T{1}, T{1}, T{0});
-  auto gpio = Gpio(2, 7, {3});
+  auto gpio = Gpio(2, 7, core::array<u8>(1, u8{3}));
   auto output = scope();
   auto channels = output.channels(2);
   sine({.downstream = std::array{channels[0]}});
-  gpio({.pins = {std::array{channels[1]}}});
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{std::array{channels[1]}}}});
 
   MockRuntime::setNow(1000);
   MockRuntime::start();
@@ -73,12 +73,12 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
                    f32,
                    f64) {
   MockRuntime::reset();
-  T                      sineValue = 0;
-  T                      pulseValue = 0;
-  std::function<void(T)> receiveSine = [&sineValue](const T value) { sineValue = value; };
-  std::function<void(T)> receivePulse = [&pulseValue](const T value) { pulseValue = value; };
-  constexpr auto         phase = -std::numbers::pi_v<T> / T{2};
-  auto                   sine = [] {
+  T                       sineValue = 0;
+  T                       pulseValue = 0;
+  core::function<void(T)> receiveSine = [&sineValue](const T value) { sineValue = value; };
+  core::function<void(T)> receivePulse = [&pulseValue](const T value) { pulseValue = value; };
+  constexpr auto          phase = -std::numbers::pi_v<T> / T{2};
+  auto                    sine = [] {
     if constexpr (std::is_same_v<T, f32>)
       return push::f_32::sources::SinGenF32(0, 10, T{1}, T{1}, phase);
     else

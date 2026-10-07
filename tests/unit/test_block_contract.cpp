@@ -1,6 +1,5 @@
 #include <array>
 #include <doctest/doctest.h>
-#include <functional>
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
@@ -33,59 +32,59 @@ struct Outputs {
 
 struct Empty {};
 static_assert(std::same_as<decltype(push::f_32::sources::ConstF32(0)),
-                           std::function<void(push::DownstreamInput<f32>)>>);
+                           core::function<void(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_32::sources::CosGenF32(0)),
-                           std::function<void(push::DownstreamInput<f32>)>>);
+                           core::function<void(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_32::sources::SinGenF32(0)),
-                           std::function<void(push::DownstreamInput<f32>)>>);
+                           core::function<void(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_32::sources::RandGenF32(0)),
-                           std::function<void(push::DownstreamInput<f32>)>>);
+                           core::function<void(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_32::sources::PulseGenF32(0)),
-                           std::function<void(push::DownstreamInput<f32>)>>);
+                           core::function<void(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_32::sources::GpioInF32(0)),
-                           std::function<void(push::GpioInput<f32>)>>);
+                           core::function<void(push::GpioInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_32::sinks::ScopeF32(0)),
-                           std::function<push::f_32::sinks::ScopeF32Output()>>);
+                           core::function<push::f_32::sinks::ScopeF32Output()>>);
 static_assert(std::same_as<
               decltype(push::f_32::transformers::CosF32(0)),
-              std::function<push::f_32::transformers::CosF32Output(push::DownstreamInput<f32>)>>);
+              core::function<push::f_32::transformers::CosF32Output(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<
               decltype(push::f_32::transformers::SinF32(0)),
-              std::function<push::f_32::transformers::SinF32Output(push::DownstreamInput<f32>)>>);
+              core::function<push::f_32::transformers::SinF32Output(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<
               decltype(push::f_32::transformers::SumF32(0)),
-              std::function<push::f_32::transformers::SumF32Output(push::DownstreamInput<f32>)>>);
+              core::function<push::f_32::transformers::SumF32Output(push::DownstreamInput<f32>)>>);
 static_assert(
     std::same_as<
         decltype(push::f_32::transformers::ProductF32(0)),
-        std::function<push::f_32::transformers::ProductF32Output(push::DownstreamInput<f32>)>>);
+        core::function<push::f_32::transformers::ProductF32Output(push::DownstreamInput<f32>)>>);
 static_assert(std::same_as<decltype(push::f_64::sources::ConstF64(0)),
-                           std::function<void(push::DownstreamInput<f64>)>>);
+                           core::function<void(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<decltype(push::f_64::sources::CosGenF64(0)),
-                           std::function<void(push::DownstreamInput<f64>)>>);
+                           core::function<void(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<decltype(push::f_64::sources::SinGenF64(0)),
-                           std::function<void(push::DownstreamInput<f64>)>>);
+                           core::function<void(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<decltype(push::f_64::sources::RandGenF64(0)),
-                           std::function<void(push::DownstreamInput<f64>)>>);
+                           core::function<void(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<decltype(push::f_64::sources::PulseGenF64(0)),
-                           std::function<void(push::DownstreamInput<f64>)>>);
+                           core::function<void(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<decltype(push::f_64::sources::GpioInF64(0)),
-                           std::function<void(push::GpioInput<f64>)>>);
+                           core::function<void(push::GpioInput<f64>)>>);
 static_assert(std::same_as<decltype(push::f_64::sinks::ScopeF64(0)),
-                           std::function<push::f_64::sinks::ScopeF64Output()>>);
+                           core::function<push::f_64::sinks::ScopeF64Output()>>);
 static_assert(std::same_as<
               decltype(push::f_64::transformers::CosF64(0)),
-              std::function<push::f_64::transformers::CosF64Output(push::DownstreamInput<f64>)>>);
+              core::function<push::f_64::transformers::CosF64Output(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<
               decltype(push::f_64::transformers::SinF64(0)),
-              std::function<push::f_64::transformers::SinF64Output(push::DownstreamInput<f64>)>>);
+              core::function<push::f_64::transformers::SinF64Output(push::DownstreamInput<f64>)>>);
 static_assert(std::same_as<
               decltype(push::f_64::transformers::SumF64(0)),
-              std::function<push::f_64::transformers::SumF64Output(push::DownstreamInput<f64>)>>);
+              core::function<push::f_64::transformers::SumF64Output(push::DownstreamInput<f64>)>>);
 static_assert(
     std::same_as<
         decltype(push::f_64::transformers::ProductF64(0)),
-        std::function<push::f_64::transformers::ProductF64Output(push::DownstreamInput<f64>)>>);
+        core::function<push::f_64::transformers::ProductF64Output(push::DownstreamInput<f64>)>>);
 
 /**
  * DualScopeOutput
@@ -100,17 +99,17 @@ template <typename T> struct DualScopeOutput {
    * @brief One vectorized output carrying the first scope's consumers.
    * @image scope.svg
    */
-  VectorizedOutput<std::function<void(T)>> channels{};
+  VectorizedOutput<core::function<void(T)>> channels{};
 
   /**
    * Single
    * @brief A separate output carrying the second scope's consumer.
    * @image scope.svg
    */
-  std::function<void(T)> *single{nullptr};
+  core::function<void(T)> *single{nullptr};
 };
 
-template <typename O> std::function<O()> DualScope(u32 blockId) {
+template <typename O> core::function<O()> DualScope(u32 blockId) {
   using T = O::Value;
   auto first = [&] {
     if constexpr (std::is_same_v<T, f32>)
@@ -132,7 +131,7 @@ template <typename O> std::function<O()> DualScope(u32 blockId) {
 } // namespace
 
 TEST_CASE("Block dispatches structs with multiple ports") {
-  std::function<Outputs(Inputs)> block = [](Inputs input) {
+  core::function<Outputs(Inputs)> block = [](Inputs input) {
     return Outputs{input.left + input.right, input.left - input.right};
   };
   const auto output = block({.left = 7, .right = 3});
@@ -141,8 +140,8 @@ TEST_CASE("Block dispatches structs with multiple ports") {
 }
 
 TEST_CASE("Block supports an empty input struct and void output") {
-  u32                        calls = 0;
-  std::function<void(Empty)> block = [&calls](Empty) { ++calls; };
+  u32                         calls = 0;
+  core::function<void(Empty)> block = [&calls](Empty) { ++calls; };
   block({});
   CHECK_EQ(calls, 1);
 }
@@ -166,9 +165,9 @@ TEST_CASE_TEMPLATE("Push wiring works through typed block references",
     else
       return push::f_64::sources::ConstF64(1, T{3});
   }();
-  std::function<ScopeOutput()>                  &sink = scope;
-  std::function<void(push::DownstreamInput<T>)> &source = constant;
-  auto                                           output = sink();
+  core::function<ScopeOutput()>                  &sink = scope;
+  core::function<void(push::DownstreamInput<T>)> &source = constant;
+  auto                                            output = sink();
   source({.downstream = output.channels(2)});
   MockRuntime::start();
   if constexpr (std::is_same_v<T, f32>) {
@@ -255,9 +254,9 @@ TEST_CASE_TEMPLATE("Aggregation supports channel vectors at channel count bounda
 TEST_CASE("GPIO input preserves disconnected pin positions and fanout") {
   MockRuntime::reset();
   auto scope = push::f_32::sinks::ScopeF32(0);
-  auto gpio = push::f_32::sources::GpioInF32(1, 7, {1, 3});
+  auto gpio = push::f_32::sources::GpioInF32(1, 7, core::array<u8>{{1, 3}});
   auto output = scope();
-  gpio({.pins = {{}, output.channels(2)}});
+  gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{{}, output.channels(2)}}});
   MockRuntime::emitGpio(7, 1, true);
   CHECK_FALSE(MockRuntime::hasF32(0, 0));
   CHECK_FALSE(MockRuntime::hasF32(0, 1));
@@ -273,8 +272,8 @@ TEST_CASE_TEMPLATE("A block returns independent vectorized and scalar output fie
                    f32,
                    f64) {
   MockRuntime::reset();
-  auto                                 scopes = DualScope<DualScopeOutput<T>>(10);
-  std::function<DualScopeOutput<T>()> &block = scopes;
+  auto                                  scopes = DualScope<DualScopeOutput<T>>(10);
+  core::function<DualScopeOutput<T>()> &block = scopes;
   auto [channels, single] = block();
 
   auto channelList = channels(2);
@@ -316,9 +315,10 @@ TEST_CASE("Copies retain timer and GPIO state after original callables are relea
   auto scope = push::f_32::sinks::ScopeF32(0);
   auto channels = scope().channels(2);
   auto generator = push::f_32::sources::CosGenF32(1, 25);
-  auto gpio = push::f_32::sources::GpioInF32(2, 7, {3});
+  auto gpio = push::f_32::sources::GpioInF32(2, 7, core::array<u8>(1, u8{3}));
   generator({.downstream = std::array{channels[0]}});
-  gpio({.pins = {std::array{channels[1]}}});
+  gpio(
+      {.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{std::array{channels[1]}}}});
   auto generatorOwner = generator;
   auto gpioOwner = gpio;
   generator = {};
@@ -338,9 +338,9 @@ TEST_CASE_TEMPLATE("Consumers bind capturing lambdas directly and accept null fa
                    f32,
                    f64) {
   MockRuntime::reset();
-  T                      received = 0;
-  u32                    calls = 0;
-  std::function<void(T)> receive = [&received, &calls](const T value) {
+  T                       received = 0;
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&received, &calls](const T value) {
     received = value;
     ++calls;
   };
@@ -350,7 +350,7 @@ TEST_CASE_TEMPLATE("Consumers bind capturing lambdas directly and accept null fa
     else
       return push::f_64::sources::ConstF64(0, T{3});
   }();
-  source({.downstream = std::array<std::function<void(T)> *, 2>{nullptr, &receive}});
+  source({.downstream = std::array<core::function<void(T)> *, 2>{nullptr, &receive}});
   MockRuntime::start();
   CHECK_EQ(received, T{3});
   CHECK_EQ(calls, 1);
@@ -372,8 +372,8 @@ TEST_CASE("A retained vectorized scope output owns consumers after the factory i
 
 TEST_CASE("Retained aggregate outputs preserve callbacks after the factory is released") {
   MockRuntime::reset();
-  f32                      received = 0;
-  std::function<void(f32)> receive = [&received](const f32 value) { received = value; };
+  f32                       received = 0;
+  core::function<void(f32)> receive = [&received](const f32 value) { received = value; };
   auto output = push::f_32::transformers::SumF32(0, 25)({.downstream = std::array{&receive}});
   auto consumers = output.channels(2);
   (*consumers[0])(3.f);
@@ -401,14 +401,14 @@ TEST_CASE_TEMPLATE(
   auto sources = std::array{Constant(0, T{2}), Constant(1, T{2}), Constant(2, T{2})};
   T    received = 0;
   u32  calls = 0;
-  std::function<void(T)> receive = [&received, &calls](const T value) {
+  core::function<void(T)> receive = [&received, &calls](const T value) {
     received += value;
     ++calls;
   };
   {
-    std::array              array{&receive};
-    std::vector             vector{&receive};
-    std::function<void(T)> *raw[]{&receive};
+    std::array               array{&receive};
+    std::vector              vector{&receive};
+    core::function<void(T)> *raw[]{&receive};
     sources[0]({.downstream = array});
     sources[1]({.downstream = vector});
     sources[2]({.downstream = raw});

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <core/math.hpp>
+
 #include <base/aggregate.hpp>
 #include <base/constant.hpp>
 #include <base/gpio_in.hpp>
@@ -9,8 +11,6 @@
 #include <base/scope.hpp>
 #include <base/unary_transformer.hpp>
 #include <base/wave_gen.hpp>
-#include <cmath>
-#include <functional>
 
 namespace push::f_32::transformers {
 
@@ -19,9 +19,9 @@ namespace push::f_32::transformers {
  * @brief Computes the cosine of the input value
  * @image cos.svg
  */
-inline std::function<CosF32Output(DownstreamInput<f32>)> CosF32(const u32 blockId) {
+inline core::function<CosF32Output(DownstreamInput<f32>)> CosF32(const u32 blockId) {
   return detail::makeUnaryTransformer<DownstreamInput<f32>, CosF32Output>(
-      blockId, [](const f32 value) { return std::cos(value); });
+      blockId, [](const f32 value) { return core::cos(value); });
 }
 
 /**
@@ -29,9 +29,9 @@ inline std::function<CosF32Output(DownstreamInput<f32>)> CosF32(const u32 blockI
  * @brief Computes the sine of the input value
  * @image sin.svg
  */
-inline std::function<SinF32Output(DownstreamInput<f32>)> SinF32(const u32 blockId) {
+inline core::function<SinF32Output(DownstreamInput<f32>)> SinF32(const u32 blockId) {
   return detail::makeUnaryTransformer<DownstreamInput<f32>, SinF32Output>(
-      blockId, [](const f32 value) { return std::sin(value); });
+      blockId, [](const f32 value) { return core::sin(value); });
 }
 
 /**
@@ -46,8 +46,8 @@ inline std::function<SinF32Output(DownstreamInput<f32>)> SinF32(const u32 blockI
  *   @max 1000
  *   @step 1
  */
-inline std::function<ProductF32Output(DownstreamInput<f32>)> ProductF32(const u32 blockId,
-                                                                        const u32 precision = 10) {
+inline core::function<ProductF32Output(DownstreamInput<f32>)> ProductF32(const u32 blockId,
+                                                                         const u32 precision = 10) {
   return detail::makeAggregate<DownstreamInput<f32>, ProductF32Output>(
       blockId, precision, [](const f32 acc, const f32 value) { return acc * value; });
 }
@@ -64,8 +64,8 @@ inline std::function<ProductF32Output(DownstreamInput<f32>)> ProductF32(const u3
  *   @max 1000
  *   @step 1
  */
-inline std::function<SumF32Output(DownstreamInput<f32>)> SumF32(const u32 blockId,
-                                                                const u32 precision = 10) {
+inline core::function<SumF32Output(DownstreamInput<f32>)> SumF32(const u32 blockId,
+                                                                 const u32 precision = 10) {
   return detail::makeAggregate<DownstreamInput<f32>, SumF32Output>(
       blockId, precision, [](const f32 acc, const f32 value) { return acc + value; });
 }
@@ -93,9 +93,9 @@ namespace push::f_32::sinks {
  *   @max 1000
  *   @step 1
  */
-inline std::function<ScopeF32Output()> ScopeF32(const u32 blockId,
-                                                const u32 period = 60,
-                                                const u32 precision = 10) {
+inline core::function<ScopeF32Output()> ScopeF32(const u32 blockId,
+                                                 const u32 period = 60,
+                                                 const u32 precision = 10) {
   return detail::makeScope<ScopeF32Output>(blockId, period, precision);
 }
 
@@ -119,10 +119,12 @@ namespace push::f_32::sources {
  *   @icon push.gpio_in.svg
  *   @control text
  */
-inline std::function<void(GpioInput<f32>)> GpioInF32(const u32       blockId,
-                                                     const u16       port = 0,
-                                                     std::vector<u8> pins = {0}) {
-  return detail::makeGpioIn<GpioInput<f32>>(blockId, port, std::move(pins));
+inline core::function<void(GpioInput<f32>)>
+GpioInF32(const u32       blockId,
+          const u16       port = 0,
+          core::array<u8> pins = core::array<u8>(1,
+                                                 u8{0})) {
+  return detail::makeGpioIn<GpioInput<f32>>(blockId, port, core::detail::move(pins));
 }
 
 /**
@@ -134,8 +136,8 @@ inline std::function<void(GpioInput<f32>)> GpioInF32(const u32       blockId,
  *   @icon push.const.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f32>)> ConstF32(const u32 blockId,
-                                                          const f32 value = 1) {
+inline core::function<void(DownstreamInput<f32>)> ConstF32(const u32 blockId,
+                                                           const f32 value = 1) {
   return detail::makeConstant<DownstreamInput<f32>>(blockId, value);
 }
 
@@ -165,13 +167,14 @@ inline std::function<void(DownstreamInput<f32>)> ConstF32(const u32 blockId,
  *   @icon phase.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f32>)> CosGenF32(const u32 blockId,
-                                                           const u32 precision = 10,
-                                                           const f32 frequency = 1,
-                                                           const f32 amplitude = 1,
-                                                           const f32 phase = 0) {
-  return detail::makeWaveGen<DownstreamInput<f32>>(blockId, precision, frequency, amplitude, phase,
-                                                   [](const f32 angle) { return std::cos(angle); });
+inline core::function<void(DownstreamInput<f32>)> CosGenF32(const u32 blockId,
+                                                            const u32 precision = 10,
+                                                            const f32 frequency = 1,
+                                                            const f32 amplitude = 1,
+                                                            const f32 phase = 0) {
+  return detail::makeWaveGen<DownstreamInput<f32>>(
+      blockId, precision, frequency, amplitude, phase,
+      [](const f32 angle) { return core::cos(angle); });
 }
 
 /**
@@ -200,13 +203,14 @@ inline std::function<void(DownstreamInput<f32>)> CosGenF32(const u32 blockId,
  *   @icon phase.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f32>)> SinGenF32(const u32 blockId,
-                                                           const u32 precision = 10,
-                                                           const f32 frequency = 1,
-                                                           const f32 amplitude = 1,
-                                                           const f32 phase = 0) {
-  return detail::makeWaveGen<DownstreamInput<f32>>(blockId, precision, frequency, amplitude, phase,
-                                                   [](const f32 angle) { return std::sin(angle); });
+inline core::function<void(DownstreamInput<f32>)> SinGenF32(const u32 blockId,
+                                                            const u32 precision = 10,
+                                                            const f32 frequency = 1,
+                                                            const f32 amplitude = 1,
+                                                            const f32 phase = 0) {
+  return detail::makeWaveGen<DownstreamInput<f32>>(
+      blockId, precision, frequency, amplitude, phase,
+      [](const f32 angle) { return core::sin(angle); });
 }
 
 /**
@@ -225,9 +229,9 @@ inline std::function<void(DownstreamInput<f32>)> SinGenF32(const u32 blockId,
  *   @icon amplitude.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f32>)> RandGenF32(const u32 blockId,
-                                                            const u32 precision = 10,
-                                                            const f32 amplitude = 1) {
+inline core::function<void(DownstreamInput<f32>)> RandGenF32(const u32 blockId,
+                                                             const u32 precision = 10,
+                                                             const f32 amplitude = 1) {
   return detail::makeRandGen<DownstreamInput<f32>>(blockId, precision, amplitude);
 }
 
@@ -257,11 +261,11 @@ inline std::function<void(DownstreamInput<f32>)> RandGenF32(const u32 blockId,
  *   @icon phase.svg
  *   @control number
  */
-inline std::function<void(DownstreamInput<f32>)> PulseGenF32(const u32 blockId,
-                                                             const f32 dutyCycle = f32{0.5},
-                                                             const f32 amplitude = 1,
-                                                             const f32 frequency = 1,
-                                                             const f32 phase = 0) {
+inline core::function<void(DownstreamInput<f32>)> PulseGenF32(const u32 blockId,
+                                                              const f32 dutyCycle = f32{0.5},
+                                                              const f32 amplitude = 1,
+                                                              const f32 frequency = 1,
+                                                              const f32 phase = 0) {
   return detail::makePulseGen<DownstreamInput<f32>>(blockId, dutyCycle, amplitude, frequency,
                                                     phase);
 }

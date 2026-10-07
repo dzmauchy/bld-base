@@ -1,7 +1,6 @@
 #pragma once
 
-#include <functional>
-#include <span>
+#include <core/lib.hpp>
 
 using Bool = bool;
 
@@ -23,7 +22,7 @@ using f64 = double;
  * while the view is used. Built-in blocks copy the pointer list when wired.
  * @image type.svg
  */
-template <typename T> using VectorizedInput = std::span<T *const>;
+template <typename T> using VectorizedInput = core::span<T *const>;
 
 /**
  * VectorizedOutput
@@ -32,4 +31,4 @@ template <typename T> using VectorizedInput = std::span<T *const>;
  * storage alive; rebuilding channels invalidates earlier views and consumer pointers.
  * @image type.svg
  */
-template <typename T> using VectorizedOutput = std::function<std::span<T *const>(u8)>;
+template <typename T> using VectorizedOutput = core::function<core::span<T *const>(u8)>;

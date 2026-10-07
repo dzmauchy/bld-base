@@ -1,25 +1,24 @@
 #pragma once
 
 #include <core/types.hpp>
-#include <functional>
 
 extern "C" {
 /* life-cycle callbacks */
-void on_close(std::function<void()> *cbk);
-void on_start(std::function<void()> *cbk);
-void on_stop(std::function<void()> *cbk);
+void on_close(core::function<void()> *cbk);
+void on_start(core::function<void()> *cbk);
+void on_stop(core::function<void()> *cbk);
 
 /* interval management */
-u32  set_interval(u32                    milliseconds,
-                  std::function<void()> *cbk);
+u32  set_interval(u32                     milliseconds,
+                  core::function<void()> *cbk);
 void clear_interval(u32 intervalId);
 
 /* gpio handling */
 bool read_gpio(u32 port,
                u8  pin);
-u32  set_gpio(u32                    port,
-              u8                     pin,
-              std::function<void()> *cbk);
+u32  set_gpio(u32                     port,
+              u8                      pin,
+              core::function<void()> *cbk);
 void clear_gpio(u32 gpio_id);
 void send_gpio(u32  port,
                u8   pin,

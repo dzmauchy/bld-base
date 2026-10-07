@@ -3,30 +3,28 @@ The project version is `VERSION` in `CMakeLists.txt`.
 ## Block interface
 
 Each block is a factory function accepting configuration parameters and returning
-`std::function<O(I)>`. Blocks with no inputs return `std::function<O()>`.
+`core::function<O(I)>`. Blocks with no inputs return `core::function<O()>`.
 `I` and `O` are structs or `void`; each field declares one logical port. Calling the returned function wires inputs and
 returns the complete
 output struct by value. Runtime callbacks deliver stream values afterward.
-A vectorized input is `VectorizedInput<T>` (`std::span<T* const>`); a vectorized output
-is `VectorizedOutput<T>`, an alias for `std::function<std::span<T *const>(u8)>` that
+A vectorized input is `VectorizedInput<T>` (`core::span<T* const>`); a vectorized output
+is `VectorizedOutput<T>`, an alias for `core::function<core::span<T *const>(u8)>` that
 accepts a channel count and returns a borrowed view of consumer pointers.
 The pointer entries are read-only; the consumers remain mutable. Inputs accept
-`std::vector`, `std::array`, and C-style pointer arrays. Built-in blocks copy input
+`core::array`, C-style pointer arrays, and native standard containers. Built-in blocks copy input
 pointer lists when wired, so the lists only need to survive the wiring call.
 
-Use `std::vector<T>(count)` for value-initialized elements,
-`std::vector<T>(count, value)` for repeated values, or `std::vector<T>(first, last)`
-to copy an existing buffer. `std::vector<i32>{3}` contains one value, while
-`std::vector<i32>(3)` contains three zero-initialized values.
-Vectors can grow and resize; blocks configure channel storage before returning
-consumer pointers. Rebuilding or reallocating that storage invalidates its
-previous spans and consumer pointers, so configure channels before wiring consumers or
-starting the runtime.
+Use `core::array<T>(count)` for value-initialized elements,
+`core::array<T>(count, value)` for repeated values, or `core::array<T>(first, last)`
+to copy an existing pointer range. Array sizes are chosen at construction and
+have no `N` template parameter. Blocks replace their complete channel arrays
+when configured. Replacing that storage invalidates previous spans and consumer
+pointers, so configure channels before wiring consumers or starting the runtime.
 
-`VectorizedOutput<T>` aliases `std::function<std::span<T *const>(u8)>` and owns its callable.
+`VectorizedOutput<T>` aliases `core::function<core::span<T *const>(u8)>` and owns its callable.
 Custom outputs must return spans over storage that outlives their use, such as
-arrays or vectors owned by the callable; returning a view of a local vector dangles.
-An empty `std::function` throws `std::bad_function_call` when invoked.
+arrays owned by the callable; returning a view of a local array dangles.
+An empty `core::function` traps when invoked.
 Assign a function, functor, or capturing lambda directly to bind an output.
 Bind captured state with a lambda such as `[channels](u8 count) { /* build consumers */ }`.
 Objects captured by pointer or reference must remain alive at the same address
@@ -51,7 +49,6 @@ one field per output.
 
 ```cpp
 #include <base/f32_blocks.hpp>
-#include <array>
 
 auto scope = push::f_32::sinks::ScopeF32(0);
 auto cosine = push::f_32::transformers::CosF32(1);
@@ -60,24 +57,26 @@ auto constant = push::f_32::sources::ConstF32(2, 0.f);
 void wire() {
   push::f_32::sinks::ScopeF32Output scopeOutput = scope();
   push::f_32::transformers::CosF32Output cosineOutput = cosine({.downstream = scopeOutput.channels(1)});
-  constant({.downstream = std::array{cosineOutput.consumer}});
+  core::array<core::function<void(f32)> *> consumers{{cosineOutput.consumer}};
+  constant({.downstream = consumers});
 }
 ```
 
 Call `wire()` before starting the runtime. Blocks are composed from functions and
 capturing lambdas. Configuration is captured by value; mutable stream lists,
-channel values, and callback storage use shared standard containers. There are
+channel values, and callback storage use shared core arrays. There are
 no custom block/state classes, virtual methods, or member callback adapters.
-Functions can be moved, copied, or stored in growing vectors after wiring.
+Functions can be moved, copied, or stored in arrays after wiring.
 Copies share the same logical block; call the factory again for an independent block.
 
-Stream consumers use `std::function<void(T)>`, and lifecycle callbacks use
-`std::function<void()>`. Assign lambdas or functions directly:
+Stream consumers use `core::function<void(T)>`, and lifecycle callbacks use
+`core::function<void()>`. Assign lambdas or functions directly:
 
 ```cpp
-std::function<void(f32)> receive = [](f32 value) { /* process value */ };
+core::function<void(f32)> receive = [](f32 value) { /* process value */ };
 auto source = push::f_32::sources::ConstF32(0, 3.f);
-source({.downstream = std::array{&receive}});
+core::array<core::function<void(f32)> *> consumers{{&receive}};
+source({.downstream = consumers});
 ```
 
 Raw consumer pointers and host registrations borrow their callables. Keep an owner
@@ -88,7 +87,7 @@ Keep that output callable alive while using those spans. Scalar consumer pointer
 block callable to stay alive. Rebuilding channels invalidates previous spans and pointers.
 Rewiring updates shared stream lists; wire each source once before runtime start.
 Shared factory functions live in `push::detail` and call the HAL directly.
-For custom blocks, return `std::function<O(I)>` from a factory using
+For custom blocks, return `core::function<O(I)>` from a factory using
 lambdas and your input/output structs.
 
 Documentation uses this format on each declaration:
@@ -99,7 +98,7 @@ Documentation uses this format on each declaration:
  * @brief Streams that receive values emitted by the block.
  * @image consumer.svg
  */
-VectorizedInput<std::function<void(T)>> downstream{};
+VectorizedInput<core::function<void(T)>> downstream{};
 ```
 
 ## Building
@@ -126,7 +125,7 @@ ctest --test-dir build --output-on-failure
 the shared headers from that prefix:
 
 ```cpp
-#include <functional>
+#include <core/lib.hpp>
 #include <core/types.hpp>
 #include <core/hal.hpp>
 ```
@@ -155,9 +154,11 @@ The script installs the archive directly into clang's in-memory filesystem and
 parses every `src/**/*.hpp` using the JSON AST and documentation comments.
 It writes `.cache/meta.json`, creating `.cache/` in the project root if needed,
 regardless of the working directory.
-No npm dependencies or native compiler are needed. The release's browser-only
-JS glue runs in an isolated Node worker. Its `unsupported syscall: __syscall_prlimit64`
-warning is harmless for AST generation.
+No npm dependencies or native compiler are needed. Use the current freestanding
+release assets together; earlier libc++ sysroots are incompatible. The browser JS glue runs in an isolated Node worker. The generator calls the
+compiler launcher with `-I` and `-o`, then reads its per-source JSON output.
+Project includes follow a declaration so the compiler's PCH preamble does not
+hide their declarations from the AST.
 
 The output has `namespaces` and `blocks` arrays. Namespace entries use fully
 qualified IDs such as `push::f_32::sinks` and contain `id`, `name`, `description`,
@@ -165,7 +166,7 @@ and `icon`. Block and port entries also contain `namespace`; blocks have `inputs
 `outputs`, and `parameters` arrays. Vectorized input and output ports include
 `"vectorized": true` when their fields use `VectorizedInput` or `VectorizedOutput`;
 scalar ports omit that property. Detection follows port
-types and their aliases, including grouped inputs and equivalent standard container types.
+types and their aliases, including grouped inputs and equivalent core array/span types.
 Each parameter object contains `id`, `namespace`,
 `name`, `description`, `icon`, and a `control` object describing the UI control (e.g., `type`, `min`, `max`, `step`).
 Factory parameters are documented in
@@ -178,8 +179,8 @@ scope). Port scopes are those of their declaring structs. IDs are unqualified
 declaration names; port IDs are field names. C++ type expressions and
 compiler-generated IDs are omitted.
 
-Blocks are factory functions returning `std::function<O(I)>` or
-`std::function<O()>`, with input/output structs or `void`. Metadata discovery also
+Blocks are factory functions returning `core::function<O(I)>` or
+`core::function<O()>`, with input/output structs or `void`. Metadata discovery also
 follows named aliases and trailing return syntax. Other callable signatures are
 skipped. Ports come from the specified structs; `void` produces an empty port array. Helpers and declarations
 inside `detail` namespaces are omitted. Repeated namespace declarations and implicit
@@ -207,7 +208,8 @@ The scripts still run directly with Node.js without a compilation step.
 `core::array<T>` for freestanding applications. On Wasm it includes `wasm.hpp`
 and uses clang-wasm's TLSF-backed new/delete, including aligned allocation.
 It needs no libc++, RTTI, or exception support. Native builds use `<new>`.
-The existing block headers still use the standard library.
+Block state uses `core::shared_ptr` for single-threaded shared ownership, and
+vectorized inputs borrow `core::span` views.
 
 Functions own copyable lambdas, functors, or function pointers. Copies duplicate
 captured values; moves transfer ownership and empty the source. An empty invocation
@@ -236,8 +238,10 @@ compile/link/runtime checks against a built clang-wasm sysroot with:
 node scripts/test-core-lib.mjs ../clang-wasm/dist/sysroot clang++
 ```
 
-This links only compiler-rt (which bundles the TLSF runtime), checks ownership
-and alignment repeatedly, and verifies traps and the absence of host imports.
+This links only compiler-rt (which bundles the TLSF runtime). The core tests
+check ownership, alignment, traps, and the absence of host imports. The block
+tests bind only the three math imports and check shared state, channel storage,
+timers, and GPIO repeatedly.
 
 ## Host bindings
 
@@ -245,20 +249,22 @@ The host supplies the `extern "C"` functions declared in `core/hal.hpp` directly
 Firmware links its definitions into the application; a browser runtime supplies
 the corresponding WebAssembly imports. The host owns lifecycle callbacks,
 timers, GPIO, ADC/DAC, observations, time in milliseconds, and random values.
-Blocks use standard C++ math functions such as `std::sin`, `std::cos`, and `std::isfinite`.
-Unset aggregate channels use `std::numeric_limits<T>::quiet_NaN()`.
-Generator phase wrapping uses `std::fmod` with `std::numbers::pi_v`.
+Blocks use `core/math.hpp` for math. Finite checks and NaN values use compiler
+builtins; phase constants are provided by `core::pi_v`. On Wasm, supply `env.sin`,
+`env.cos`, and `env.fmod` when a block uses them. A browser can bind `Math.sin`,
+`Math.cos`, and `(value, divisor) => value % divisor`, respectively. Native
+builds use the host toolchain's math library.
 Only functions used by the application need bindings.
 
 Include `core/hal.hpp` and supply the functions, such as `send_value_f32`,
 `read_gpio`, and `set_interval`. This is the same contract for every host.
 
-Registration functions receive a `std::function<void()>*` pointing to an owned callable. The host retains
+Registration functions receive a `core::function<void()>*` pointing to an owned callable. The host retains
 that pointer until the registration ends and invokes `(*callback)()` when the
 event occurs. For a browser host, the application must expose a WebAssembly
 callback entry point that performs this C++ call; JavaScript treats the pointer
 as an opaque value. Keep an owning block callable alive while callbacks are registered. Hosts must
-compile against these headers and invoke the callable directly; callbacks are invoked through their `std::function`
+compile against these headers and invoke the callable directly; callbacks are invoked through their `core::function`
 interface.
 
 The Release headers workflow publishes those headers as a GitHub Release tagged with the project version (`v0.1.0`). Run

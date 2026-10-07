@@ -18,9 +18,9 @@ test('generates all library ports, documentation, and only the requested metadat
   const meta: Metadata = JSON.parse(generated);
   assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
   assert.equal(meta.blocks.length, 22);
-  assert.equal(meta.namespaces.length, 9);
+  assert.equal(meta.namespaces.length, 10);
   assert.deepEqual(meta.namespaces.map(entry => entry.id), [
-    'push', 'push::f_32', 'push::f_32::sinks', 'push::f_32::sources', 'push::f_32::transformers',
+    'core', 'push', 'push::f_32', 'push::f_32::sinks', 'push::f_32::sources', 'push::f_32::transformers',
     'push::f_64', 'push::f_64::sinks', 'push::f_64::sources', 'push::f_64::transformers',
   ]);
   const entryKeys = ['description', 'icon', 'id', 'name', 'namespace'] as const;
@@ -100,12 +100,11 @@ test('reads unincluded headers, UTF-8 comments, and multiple fields; preserves o
     await mkdir(path.join(temporary, 'src/core'), { recursive: true });
     const fixtureScript = path.join(temporary, 'scripts/generate-meta.ts');
     await copyFile(script, fixtureScript);
+    await copyFile(path.join(root, 'src/core/lib.hpp'), path.join(temporary, 'src/core/lib.hpp'));
     await writeFile(path.join(temporary, 'src/blocks.hpp'), `
-#include <functional>
-#include <vector>
-#include <span>
-template <typename T> using VectorizedInput = std::span<T* const>;
-template <typename T> using VectorizedOutput = std::function<std::span<T* const>(unsigned char)>;
+#include <core/lib.hpp>
+template <typename T> using VectorizedInput = core::span<T* const>;
+template <typename T> using VectorizedOutput = core::function<core::span<T* const>(unsigned char)>;
 namespace example {
 using InputChannels = VectorizedInput<int>;
 typedef InputChannels ChannelAlias;
@@ -123,11 +122,11 @@ struct In : InBase {
   int first;
   int second;
   InputChannels channels;
-  std::vector<ChannelAlias> groups;
-  std::vector<int*> raw;
-  std::span<int* const> view;
-  std::span<int> scalarView;
-  std::vector<int> values;
+  core::array<ChannelAlias> groups;
+  core::array<int*> raw;
+  core::span<int* const> view;
+  core::span<int> scalarView;
+  core::array<int> values;
 };
 struct Out {
   using LocalChannels = OutputChannels;
@@ -135,9 +134,9 @@ struct Out {
   int extra;
   LocalChannels channels;
   VectorizedOutput<int> direct;
-  std::function<std::vector<int*>(unsigned char)> raw;
-  std::function<std::span<int* const>(unsigned char)> view;
-  std::function<void(VectorizedInput<int>)> callback;
+  core::function<core::array<int*>(unsigned char)> raw;
+  core::function<core::span<int* const>(unsigned char)> view;
+  core::function<void(VectorizedInput<int>)> callback;
 };
 using Output = Out;
 /** Example
@@ -147,20 +146,20 @@ using Output = Out;
  *   @control number
  *   @min 0
  */
-inline std::function<Output(In)> Example(unsigned blockId, int gain = 1) { return {}; }
-using SourceCallable = std::function<void(In)>;
+inline core::function<Output(In)> Example(unsigned blockId, int gain = 1) { return {}; }
+using SourceCallable = core::function<void(In)>;
 typedef SourceCallable SourceFunction;
 inline auto Source(unsigned blockId) -> SourceFunction { return {}; }
 // Helpers and state classes do not describe public factories.
 struct State {};
 inline int helper(int value) { return value; }
-inline std::function<int()> scalarResult() { return {}; }
-inline std::function<void(int)> scalarInput() { return {}; }
-inline std::function<Out(In, In)> multipleArguments() { return {}; }
-inline std::function<std::vector<int*>()> channelBuilder() { return {}; }
-inline std::function<Out()> Sink(unsigned blockId) { return {}; }
+inline core::function<int()> scalarResult() { return {}; }
+inline core::function<void(int)> scalarInput() { return {}; }
+inline core::function<Out(In, In)> multipleArguments() { return {}; }
+inline core::function<core::array<int*>()> channelBuilder() { return {}; }
+inline core::function<Out()> Sink(unsigned blockId) { return {}; }
 namespace detail {
-inline std::function<Output(In)> Internal(unsigned blockId) { return {}; }
+inline core::function<Output(In)> Internal(unsigned blockId) { return {}; }
 }
 }
 `);

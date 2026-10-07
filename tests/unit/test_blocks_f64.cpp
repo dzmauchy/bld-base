@@ -122,9 +122,9 @@ TEST_SUITE("f64 blocks") {
     auto scope = ScopeF64(0);
     auto sinks = scope().channels(2);
     auto rand = RandGenF64(1, 10, 2.0);
-    auto gpio = GpioInF64(2, 7, {1});
+    auto gpio = GpioInF64(2, 7, core::array<u8>(1, u8{1}));
     rand({.downstream = std::array{sinks[0]}});
-    gpio({.pins = {std::array{sinks[1]}}});
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f64)>>>{{std::array{sinks[1]}}}});
 
     MockRuntime::setRandom(0.25f);
     MockRuntime::start();
