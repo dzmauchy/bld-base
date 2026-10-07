@@ -51,6 +51,7 @@ if (BASE_BUILD_TESTS)
     tests/mock_runtime.cpp
     tests/unit/test_block_contract.cpp
     tests/unit/test_core_lib.cpp
+    tests/unit/test_diagram_contract.cpp
     tests/unit/test_blocks.cpp
     tests/unit/test_blocks_f64.cpp
     tests/unit/test_host_bindings.cpp

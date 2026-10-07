@@ -32,6 +32,8 @@ template <typename T> struct GpioInput {
    * Pins
    * @brief Streams per configured pin, in constructor pin order; empty entries leave pins
    * disconnected.
+   * @length_parameter pins
+   * @max_channels 8
    * @image push.gpio_in.svg
    */
   core::array<VectorizedInput<core::function<void(T)>>> pins{};

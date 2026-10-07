@@ -1,5 +1,6 @@
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
+#include <core/diagram.hpp>
 
 namespace {
 using Callback = core::function<void()>;
@@ -11,6 +12,11 @@ u32       startCount = 0, closeCount = 0, timerCount = 0;
 u64       now = 0;
 f32       observed32[8]{};
 f64       observed64[8]{};
+#ifdef TEST_GPIO_REGISTRATION
+u32             registeredBlock = 0;
+u16             registeredPort = 0;
+core::array<u8> registeredPins;
+#endif
 } // namespace
 
 extern "C" {
@@ -33,6 +39,15 @@ u32 set_gpio(u32,
   return 1;
 }
 void clear_gpio(u32) { gpio = nullptr; }
+#ifdef TEST_GPIO_REGISTRATION
+void register_gpio_block(u32                    blockId,
+                         u16                    port,
+                         const core::array<u8> &pins) {
+  registeredBlock = blockId;
+  registeredPort = port;
+  registeredPins = pins;
+}
+#endif
 void send_value_f32(u32,
                     u8  channel,
                     f32 value) {
@@ -106,4 +121,84 @@ extern "C" int block_checks() {
     CHECK(timers[i] == nullptr);
   CHECK(gpio == nullptr);
   return 0;
+}
+
+extern "C" int diagram_checks() {
+  startCount = closeCount = timerCount = 0;
+  auto scope32 = push::f_32::sinks::ScopeF32(0);
+  auto scope64 = push::f_64::sinks::ScopeF64(1);
+  auto out32 = core::bind_block(scope32, core::block_inputs(scope32));
+  auto out64 = core::bind_block(scope64, core::block_inputs(scope64));
+  auto channels32 = core::output_channels<true, 4>(out32.channels);
+  auto channels64 = core::output_channels<true, 2>(out64.channels);
+  auto constant32 =
+      push::f_32::sources::ConstF32(2, core::config_arg<0>(push::f_32::sources::ConstF32, 3.5));
+  auto constant64 =
+      push::f_64::sources::ConstF64(3, core::config_arg<0>(push::f_64::sources::ConstF64, 7.25));
+  auto input =
+      push::f_32::sources::GpioInF32(4, core::config_arg<0>(push::f_32::sources::GpioInF32, 7),
+                                     core::config_arg<1>(push::f_32::sources::GpioInF32, 0, 1));
+#ifdef TEST_GPIO_REGISTRATION
+  CHECK(registeredBlock == 4 && registeredPort == 7);
+  CHECK(registeredPins.size() == 2 && registeredPins[0] == 0 && registeredPins[1] == 1);
+#endif
+  {
+    auto in32 = core::block_inputs(constant32);
+    auto in64 = core::block_inputs(constant64);
+    auto gpioIn = core::block_inputs(input);
+    auto connections32 = core::input_connections<true, 2, 2>(in32.downstream);
+    auto connections64 = core::input_connections<true, 2, 2>(in64.downstream);
+    auto groups = core::input_connections<true, 2, 2>(gpioIn.pins);
+    connections32.connect(0, channels32.at(0));
+    connections32.connect(1, channels32.at(1));
+    connections64.connect(0, channels64.at(0));
+    connections64.connect(1, channels64.at(1));
+    groups.connect(1, channels32.at(2));
+    groups.connect(1, channels32.at(3));
+    in32.downstream = connections32.view();
+    in64.downstream = connections64.view();
+    gpioIn.pins = groups.view();
+    core::bind_block(constant32, in32);
+    core::bind_block(constant64, in64);
+    core::bind_block(input, gpioIn);
+  }
+  for (u32 i = 0; i < startCount; ++i)
+    (*starts[i])();
+  CHECK(observed32[0] == 3.5f && observed32[1] == 3.5f);
+  CHECK(observed64[0] == 7.25 && observed64[1] == 7.25);
+  (*gpio)();
+  CHECK(observed32[2] == 1 && observed32[3] == 1);
+  for (u32 i = 0; i < closeCount; ++i)
+    (*closes[i])();
+  CHECK(gpio == nullptr);
+  return 0;
+}
+
+extern "C" void diagram_scalar_index() {
+  i32  port = 0;
+  auto connections = core::input_connections<false, 1, 0>(port);
+  connections.connect(0, 1);
+}
+extern "C" void diagram_connection_overflow() {
+  i32                    value = 0;
+  core::span<i32 *const> port;
+  auto                   connections = core::input_connections<true, 1, 1>(port);
+  connections.connect(0, &value);
+  connections.connect(0, &value);
+}
+extern "C" void diagram_group_index() {
+  i32                                 value = 0;
+  core::array<core::span<i32 *const>> port;
+  auto                                connections = core::input_connections<true, 1, 1>(port);
+  connections.connect(1, &value);
+}
+extern "C" void diagram_output_width() {
+  auto channels = core::output_channels<true, 2>(core::array<i32 *>{});
+  (void)channels;
+}
+extern "C" void diagram_gpio_width() {
+  auto gpioBlock = push::f_32::sources::GpioInF32(0);
+  auto input = core::block_inputs(gpioBlock);
+  input.pins = decltype(input.pins)(2);
+  core::bind_block(gpioBlock, input);
 }

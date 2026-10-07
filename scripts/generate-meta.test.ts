@@ -34,12 +34,13 @@ test('generates all library ports, documentation, and only the requested metadat
         ? [...keys, 'inputs', 'outputs', 'parameters'].sort() : keys);
       for (const key of keys) assert.equal(typeof entry[key], 'string');
       for (const port of [...(entry.inputs ?? []), ...(entry.outputs ?? [])]) {
-        assert.deepEqual(Object.keys(port).sort(), port.vectorized ? [...entryKeys, 'vectorized'].sort() : entryKeys);
+        assert.deepEqual(Object.keys(port).sort(), [...entryKeys,
+          ...(port.vectorized ? ['vectorized'] : []), ...(port.length ? ['length'] : [])].sort());
         if ('vectorized' in port) assert.equal(port.vectorized, true);
         assert.ok(port.name && port.description && port.icon);
       }
       for (const parameter of entry.parameters ?? []) {
-        assert.deepEqual(Object.keys(parameter).sort(), [...entryKeys, 'control'].sort());
+        assert.deepEqual(Object.keys(parameter).sort(), [...entryKeys, 'control', 'default'].sort());
         assert.ok(parameter.name && parameter.description && parameter.icon);
         assert.equal(typeof parameter.control, 'object');
         assert.ok(parameter.control && typeof parameter.control.type === 'string');
@@ -70,6 +71,13 @@ test('generates all library ports, documentation, and only the requested metadat
         else assert.ok(!('vectorized' in port), `${block.id}.${port.id}`);
       }
       assert.deepEqual(block.parameters.map(parameter => parameter.id), parameters);
+      if (name === 'GpioIn') {
+        assert.deepEqual(block.inputs[0].length, { parameter: 'pins', max: 8 });
+        assert.deepEqual(block.parameters.map(parameter => parameter.default), [0, [0]]);
+        assert.equal(block.inputs[0].description,
+          'Streams per configured pin, in constructor pin order; empty entries leave pins disconnected.');
+      }
+      if (name === 'PulseGen') assert.deepEqual(block.parameters.map(parameter => parameter.default), [0.5, 1, 1, 0]);
     }
   }
   const cosine = meta.blocks.find(entry => entry.id === 'CosF32');
@@ -82,10 +90,12 @@ test('generates all library ports, documentation, and only the requested metadat
   assert.ok(scope);
   assert.equal(scope.parameters.length, 2);
   assert.equal(scope.parameters[0].id, 'period');
+  assert.equal(scope.parameters[0].default, 60);
   assert.equal(scope.parameters[0].name, 'Period');
   assert.equal(scope.parameters[0].icon, 'period.svg');
   assert.deepEqual(scope.parameters[0].control, { type: 'slider', min: 1, max: 3600, step: 1 });
   assert.equal(scope.parameters[1].id, 'precision');
+  assert.equal(scope.parameters[1].default, 10);
   assert.equal(scope.parameters[1].name, 'Precision');
   assert.equal(scope.parameters[1].icon, 'precision.svg');
   assert.deepEqual(scope.parameters[1].control, { type: 'number', min: 1, max: 1000, step: 1 });
@@ -122,6 +132,11 @@ struct In : InBase {
   int first;
   int second;
   InputChannels channels;
+  /** Groups
+   * @brief A group for each configured pin.
+   * @length_parameter pins
+   * @max_channels 4
+   */
   core::array<ChannelAlias> groups;
   core::array<int*> raw;
   core::span<int* const> view;
@@ -146,10 +161,14 @@ using Output = Out;
  *   @control number
  *   @min 0
  */
-inline core::function<Output(In)> Example(unsigned blockId, int gain = 1) { return {}; }
+inline core::function<Output(In)> Example(unsigned blockId, int gain = 1,
+  core::array<unsigned char> pins = {{2, 4}}, bool enabled = false,
+  double offset = -3.5, float scale = float{0.25},
+  core::array<int> empty = {}, core::array<int> zeroes = core::array<int>(3),
+  core::array<int> repeated = core::array<int>(2, 5)) { return {}; }
 using SourceCallable = core::function<void(In)>;
 typedef SourceCallable SourceFunction;
-inline auto Source(unsigned blockId) -> SourceFunction { return {}; }
+inline auto Source(unsigned blockId, core::array<unsigned char> pins = {}) -> SourceFunction { return {}; }
 // Helpers and state classes do not describe public factories.
 struct State {};
 inline int helper(int value) { return value; }
@@ -157,7 +176,7 @@ inline core::function<int()> scalarResult() { return {}; }
 inline core::function<void(int)> scalarInput() { return {}; }
 inline core::function<Out(In, In)> multipleArguments() { return {}; }
 inline core::function<core::array<int*>()> channelBuilder() { return {}; }
-inline core::function<Out()> Sink(unsigned blockId) { return {}; }
+inline core::function<Out()> Sink(unsigned blockId, int required) { return {}; }
 namespace detail {
 inline core::function<Output(In)> Internal(unsigned blockId) { return {}; }
 }
@@ -194,9 +213,22 @@ inline core::function<Output(In)> Internal(unsigned blockId) { return {}; }
     assert.deepEqual(sink.outputs.map(port => port.id), meta.blocks[0].outputs.map(port => port.id));
     const example = meta.blocks.find(entry => entry.id === 'Example');
     assert.ok(example);
-    assert.deepEqual(example.parameters.map(parameter => parameter.id), ['gain']);
+    assert.deepEqual(example.parameters.map(parameter => parameter.id),
+      ['gain', 'pins', 'enabled', 'offset', 'scale', 'empty', 'zeroes', 'repeated']);
+    assert.deepEqual(example.parameters.map(parameter => parameter.default),
+      [1, [2, 4], false, -3.5, 0.25, [], [0, 0, 0], [5, 5]]);
+    assert.deepEqual(example.inputs.find(port => port.id === 'groups')?.length, { parameter: 'pins', max: 4 });
+    assert.ok(!('default' in sink.parameters[0]));
     assert.deepEqual(example.parameters[0].control, { type: 'number', min: 0 });
     assert.ok(!meta.namespaces.some(entry => entry.id.includes('detail')));
+    const fixture = path.join(temporary, 'src/blocks.hpp');
+    const sourceText = await readFile(fixture, 'utf8');
+    await writeFile(fixture, sourceText.replace('int gain = 1', 'int gain = (1 + 2)'));
+    const unsupported = run(fixtureScript);
+    assert.notEqual(unsupported.status, 0);
+    assert.match(unsupported.stderr, /Unsupported configuration default.*Example.gain/);
+    assert.equal(await readFile(output, 'utf8'), generated);
+    await writeFile(fixture, sourceText);
     await writeFile(path.join(temporary, 'src/extra.hpp'), '#error deliberate compiler failure\n');
     const failed = run(fixtureScript);
     assert.notEqual(failed.status, 0);

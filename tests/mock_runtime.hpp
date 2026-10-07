@@ -29,6 +29,11 @@ public:
   static auto activeIntervalCount() -> u32;
   static auto activeGpioCount() -> u32;
   static auto intervalPeriodAt(u32 index) -> u32;
+  static auto registeredGpioCount() -> u32;
+  static auto registeredGpioPort(u32 blockId) -> u16;
+  static auto registeredGpioPinCount(u32 blockId) -> u32;
+  static auto registeredGpioPin(u32 blockId,
+                                u32 index) -> u8;
 
   void handleOnStart(core::function<void()> *callback);
   void handleOnClose(core::function<void()> *callback);
@@ -45,6 +50,9 @@ public:
   void handleSendGpio(u32  port,
                       u8   pin,
                       bool value);
+  void handleRegisterGpio(u32                    blockId,
+                          u16                    port,
+                          const core::array<u8> &pins);
   void handleSendF32(u32 blockId,
                      u8  inputId,
                      f32 value);
@@ -56,6 +64,10 @@ public:
   auto handleGetTime() const -> u64;
 
 private:
+  struct GpioConfiguration {
+    u16             port;
+    std::vector<u8> pins;
+  };
   struct Interval {
     u32                     id;
     u32                     period;
@@ -80,6 +92,7 @@ private:
   std::vector<Interval>                 intervals_{};
   std::vector<GpioListener>             gpio_{};
   std::map<std::pair<u32, u8>, bool>    gpioValues_{};
+  std::map<u32, GpioConfiguration>      gpioBlocks_{};
   std::map<std::pair<u32, u8>, f32>     valuesF32_{};
   std::map<std::pair<u32, u8>, f64>     valuesF64_{};
   u32                                   nextIntervalId_{1};

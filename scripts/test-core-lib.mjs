@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {execFileSync} from 'node:child_process';
+import {execFileSync, spawnSync} from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,9 +41,12 @@ try {
         assert.throws(() => instance.exports[name](), WebAssembly.RuntimeError, `${name} must trap`);
     console.log('Core lib Wasm checks passed: fixed-size arrays, TLSF ownership, copies, alignment, and traps.');
     const blocksWasm = path.join(temporary, 'blocks.wasm');
+    const diagramTraps = ['diagram_scalar_index', 'diagram_connection_overflow',
+        'diagram_group_index', 'diagram_output_width', 'diagram_gpio_width'];
     execFileSync(compiler, [...flags,
         path.join(root, 'tests/freestanding/blocks.cpp'), ...linkFlags,
-        '-Wl,--export=block_checks', '-o', blocksWasm,
+        '-Wl,--export=block_checks', '-Wl,--export=diagram_checks',
+        ...diagramTraps.map(name => `-Wl,--export=${name}`), '-o', blocksWasm,
     ], {stdio: 'inherit'});
     const blocksModule = await WebAssembly.compile(fs.readFileSync(blocksWasm));
     assert.deepEqual(WebAssembly.Module.imports(blocksModule).map(({module, name}) => `${module}.${name}`).sort(),
@@ -53,7 +56,44 @@ try {
     }});
     for (let i = 0; i < 1000; ++i)
         assert.equal(blocks.exports.block_checks(), 0, 'Block check failed at this source line');
+    for (let i = 0; i < 1000; ++i)
+        assert.equal(blocks.exports.diagram_checks(), 0, 'Diagram check failed at this source line');
+    for (const name of diagramTraps)
+        assert.throws(() => blocks.exports[name](), WebAssembly.RuntimeError, `${name} must trap`);
     console.log('Block Wasm checks passed: channel storage, shared state, math imports, timers, and GPIO.');
+    const registeredWasm = path.join(temporary, 'diagram-registered.wasm');
+    execFileSync(compiler, [...flags, '-DTEST_GPIO_REGISTRATION',
+        path.join(root, 'tests/freestanding/blocks.cpp'), ...linkFlags,
+        '-Wl,--export=diagram_checks', '-o', registeredWasm,
+    ], {stdio: 'inherit'});
+    const registeredModule = await WebAssembly.compile(fs.readFileSync(registeredWasm));
+    assert.deepEqual(WebAssembly.Module.imports(registeredModule), [], 'The diagram API needs no new imports');
+    const registered = await WebAssembly.instantiate(registeredModule);
+    for (let i = 0; i < 1000; ++i)
+        assert.equal(registered.exports.diagram_checks(), 0, 'GPIO registration check failed at this source line');
+    console.log('Diagram Wasm checks passed: uniform wiring, defaults, fanout, bounds, and optional GPIO registration.');
+    const rejected = [
+        ['precision', `
+            core::function<void(float)>* output = nullptr;
+            core::span<core::function<void(double)>* const> input;
+            auto connections = core::input_connections<true, 1, 1>(input);
+            connections.connect(0, output);`, /cannot initialize a parameter/],
+        ['count', `
+            VectorizedOutput<int> port;
+            auto channels = core::output_channels<true, 256>(port);`, /channel count does not fit/],
+        ['scalar', `
+            int port = 0;
+            auto connections = core::input_connections<false, 2, 1>(port);`, /Scalar input.*one connection/],
+    ];
+    for (const [name, body, diagnostic] of rejected) {
+        const source = path.join(temporary, `${name}.cpp`);
+        fs.writeFileSync(source, `#include <core/diagram.hpp>\nvoid check() { ${body} }\n`);
+        const result = spawnSync(compiler, [...flags.filter(flag => flag !== '-nostdlib'),
+            '-fsyntax-only', source], {encoding: 'utf8'});
+        assert.notEqual(result.status, 0, `${name} must fail compilation`);
+        assert.match(result.stderr, diagnostic);
+    }
+    console.log('Diagram compile checks passed: incompatible stream types, channel count overflow, and scalar fan-in rejected.');
 } finally {
     fs.rmSync(temporary, {recursive: true, force: true});
 }

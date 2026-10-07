@@ -5,12 +5,16 @@
 namespace push::detail {
 
 template <typename I>
-core::function<void(I)> makeGpioIn(const u32,
+core::function<void(I)> makeGpioIn(const u32       blockId,
                                    const u16       port,
                                    core::array<u8> pins) {
   using T = I::Value;
   constexpr u8 maxPins = 8;
   const auto   count = pins.size() < maxPins ? pins.size() : maxPins;
+  if (register_gpio_block) {
+    const core::array<u8> activePins(core::span<const u8>{pins.data(), count});
+    register_gpio_block(blockId, port, activePins);
+  }
   auto pinConsumers = core::make_shared<core::array<core::array<core::function<void(T)> *>>>();
   auto callbacks = core::make_shared<core::array<core::function<void()>>>(count);
   for (u32 i = 0; i < count; ++i) {
@@ -34,6 +38,8 @@ core::function<void(I)> makeGpioIn(const u32,
       clear_gpio(handle);
   });
   return [port, pins = core::detail::move(pins), pinConsumers, callbacks, handles, close](I input) {
+    if (input.pins.size() > callbacks->size())
+      __builtin_trap();
     const auto count = input.pins.size() < maxPins ? input.pins.size() : maxPins;
     *pinConsumers = core::array<core::array<core::function<void(T)> *>>(count);
     for (core::size_t i = 0; i < count; ++i)

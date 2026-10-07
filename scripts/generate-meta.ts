@@ -50,6 +50,9 @@ interface AstNode {
     bases?: { type: AstType }[];
     isImplicit?: boolean;
     completeDefinition?: boolean;
+    init?: string;
+    value?: string | boolean;
+    opcode?: string;
 }
 
 export interface MetadataEntry {
@@ -62,10 +65,12 @@ export interface MetadataEntry {
 
 export interface ParameterMetadata extends MetadataEntry {
     control: Record<string, unknown>;
+    default?: number | boolean | (number | boolean)[];
 }
 
 export interface PortMetadata extends MetadataEntry {
     vectorized?: true;
+    length?: {parameter: string; max?: number};
 }
 
 export interface BlockMetadata extends MetadataEntry {
@@ -185,6 +190,10 @@ function readDeclarationAst(data: Uint8Array): AstNode {
         'TranslationUnitDecl', 'LinkageSpecDecl', 'ExportDecl', 'NamespaceDecl',
         'ClassTemplateDecl', 'TypeAliasTemplateDecl', 'CXXRecordDecl', 'RecordDecl',
         'EnumDecl', 'TypeAliasDecl', 'TypedefDecl', 'FunctionDecl', 'FieldDecl', 'ParmVarDecl',
+        'IntegerLiteral', 'FloatingLiteral', 'CXXBoolLiteralExpr', 'UnaryOperator',
+        'InitListExpr', 'ImplicitCastExpr', 'CXXFunctionalCastExpr', 'CStyleCastExpr',
+        'CXXStaticCastExpr', 'ConstantExpr', 'CXXConstructExpr', 'CXXTemporaryObjectExpr',
+        'MaterializeTemporaryExpr', 'ExprWithCleanups', 'CXXBindTemporaryExpr', 'ParenExpr',
     ]);
 
     function value(): unknown {
@@ -273,8 +282,19 @@ function installSysroot(FS: ClangFileSystem, archive: Buffer): void {
 function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
     const children = (node?: AstNode): AstNode[] => node?.inner ?? [];
     const fullComment = (node: AstNode) => children(node).find(child => child.kind === 'FullComment');
-    const commentText = (node: AstNode): string => [node.text ?? '', ...children(node).map(commentText)]
-        .join(' ').replace(/\s+/g, ' ').trim();
+    const commentText = (node: AstNode): string => {
+        const parts = children(node);
+        const text = [node.text ?? ''];
+        for (let index = 0; index < parts.length; index++) {
+            const part = parts[index];
+            if (part.kind === 'InlineCommandComment' && ['length_parameter', 'max_channels'].includes(part.name ?? '')) {
+                while (parts[index + 1]?.kind === 'TextComment') index++;
+            } else {
+                text.push(commentText(part));
+            }
+        }
+        return text.join(' ').replace(/\s+/g, ' ').trim();
+    };
 
     function metadata(node: AstNode, scope: string[], comment = fullComment(node)): MetadataEntry {
         const parts = Object.groupBy(children(comment), part => part.kind);
@@ -469,8 +489,87 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
         return [...inherited, ...fields.map(field => {
             const port: PortMetadata = metadata(field, declaration.scope);
             if (isVectorized(field.type, [...declaration.scope, declaration.node.name ?? ''])) port.vectorized = true;
+            const parameter = commandValue(fullComment(field), 'length_parameter');
+            const maximum = commandValue(fullComment(field), 'max_channels');
+            if (parameter !== undefined) {
+                if (!port.vectorized || !/^[A-Za-z_]\w*$/.test(parameter))
+                    throw new Error(`Invalid channel length binding on ${port.namespace}::${port.id}`);
+                port.length = {parameter};
+                if (maximum !== undefined) {
+                    const max = Number(maximum);
+                    if (!Number.isSafeInteger(max) || max < 0) throw new Error(`Invalid maximum channel count: ${maximum}`);
+                    port.length.max = max;
+                }
+            } else if (maximum !== undefined) {
+                throw new Error(`Maximum channel count requires a length parameter on ${port.id}`);
+            }
             return port;
         })];
+    }
+
+    function commandValue(node: AstNode | undefined, name: string): string | undefined {
+        const parts = children(node);
+        for (let index = 0; index < parts.length; index++) {
+            const part = parts[index];
+            if (part.name === name && part.kind.endsWith('CommandComment')) {
+                const text = part.kind === 'InlineCommandComment'
+                    ? parts.slice(index + 1).find(sibling => sibling.kind === 'TextComment')?.text ?? ''
+                    : commentText(part);
+                return text.trim().split(/\s+/, 1)[0];
+            }
+            const found = commandValue(part, name);
+            if (found !== undefined) return found;
+        }
+    }
+
+    // Values are evaluated once for the release, never decoded by a diagram builder.
+    function defaultValue(node: AstNode): ParameterMetadata['default'] | undefined {
+        switch (node.kind) {
+            case 'IntegerLiteral':
+            case 'FloatingLiteral': {
+                const number = Number(node.value);
+                return Number.isFinite(number) ? number : undefined;
+            }
+            case 'CXXBoolLiteralExpr':
+                return typeof node.value === 'boolean' ? node.value : undefined;
+            case 'UnaryOperator': {
+                const value = node.inner?.[0] && defaultValue(node.inner[0]);
+                if (typeof value !== 'number') return undefined;
+                return node.opcode === '-' ? -value : node.opcode === '+' ? value : undefined;
+            }
+            case 'InitListExpr': {
+                const values = children(node).map(defaultValue);
+                return values.every(value => typeof value === 'number' || typeof value === 'boolean') ? values : undefined;
+            }
+            case 'CXXConstructExpr':
+            case 'CXXTemporaryObjectExpr': {
+                const type = node.type?.desugaredQualType ?? node.type?.qualType ?? '';
+                if (!/\bcore::array\s*</.test(type)) return undefined;
+                const args = children(node).map(defaultValue);
+                if (args.length === 0) return [];
+                if (Array.isArray(args[0])) return args[0];
+                const [count, initial] = args;
+                if (initial === undefined && args.length > 1 && children(node)[1].kind !== 'CXXDefaultArgExpr')
+                    return undefined;
+                const value = Array.isArray(initial) && initial.length === 1 ? initial[0]
+                    : initial ?? (/\bbool\b/.test(type) ? false : 0);
+                if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0 || count > 1_000_000
+                    || typeof value !== 'number' && typeof value !== 'boolean') return undefined;
+                return Array(count).fill(value);
+            }
+            case 'ParmVarDecl':
+            case 'ImplicitCastExpr':
+            case 'CXXFunctionalCastExpr':
+            case 'CStyleCastExpr':
+            case 'CXXStaticCastExpr':
+            case 'ConstantExpr':
+            case 'MaterializeTemporaryExpr':
+            case 'ExprWithCleanups':
+            case 'CXXBindTemporaryExpr':
+            case 'ParenExpr': {
+                return node.inner?.[0] && defaultValue(node.inner[0]);
+            }
+        }
     }
 
     function extractParameters(declaration: Declaration): ParameterMetadata[] {
@@ -576,6 +675,11 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
         return relevantParms.map(parm => {
             const id = parm.name ?? '';
             const doc = paramDocs.get(id);
+            let value = defaultValue(parm);
+            if (parm.init && value === undefined)
+                throw new Error(`Unsupported configuration default on ${declaration.scope.join('::')}::${factory.name}.${id}`);
+            if (Array.isArray(value) && !/\bcore::array\s*</.test(parm.type?.desugaredQualType ?? parm.type?.qualType ?? '') && value.length === 1)
+                value = value[0];
             return {
                 id,
                 namespace: declaration.scope.join('::'),
@@ -583,6 +687,7 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
                 description: doc?.description || '',
                 icon: doc?.icon || '',
                 control: doc?.control?.type ? doc.control : {type: 'text', ...(doc?.control ?? {})},
+                ...(value !== undefined ? {default: value} : {}),
             };
         });
     }
@@ -596,12 +701,17 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
         if (!returnType) continue;
         const types = factoryPorts(returnType, declaration.scope);
         if (!types) continue;
-        blocks.push({
+        const block: BlockMetadata = {
             ...declaration.meta,
             inputs: ports(types.input, types.scope),
             outputs: ports(types.output, types.scope),
             parameters: extractParameters(declaration),
-        });
+        };
+        for (const port of [...block.inputs, ...block.outputs]) {
+            if (port.length && !block.parameters.some(parameter => parameter.id === port.length!.parameter))
+                throw new Error(`Unknown length parameter ${port.length.parameter} on ${block.id}.${port.id}`);
+        }
+        blocks.push(block);
     }
     const sorted = <T extends {
         id: string;

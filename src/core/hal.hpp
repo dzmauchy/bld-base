@@ -14,6 +14,10 @@ u32  set_interval(u32                     milliseconds,
 void clear_interval(u32 intervalId);
 
 /* gpio handling */
+// Optional editor hook. The host must copy the list during this call.
+void register_gpio_block(u32                    blockId,
+                         u16                    port,
+                         const core::array<u8> &pins) __attribute__((weak));
 bool read_gpio(u32 port,
                u8  pin);
 u32  set_gpio(u32                     port,

@@ -101,6 +101,75 @@ Documentation uses this format on each declaration:
 VectorizedInput<core::function<void(T)>> downstream{};
 ```
 
+## Diagram builder contract
+
+Include `core/diagram.hpp` to generate wiring without inspecting C++ type spellings,
+numeric precision, callable signatures, or container representations. The builder
+uses factory and field IDs, configuration values, connection counts, channel
+indices, and each port's `vectorized` flag from `meta.json`:
+
+```cpp
+#include <base/f32_blocks.hpp>
+#include <core/diagram.hpp>
+
+auto scope = push::f_32::sinks::ScopeF32(0);
+auto constant = push::f_32::sources::ConstF32(
+    1, core::config_arg<0>(push::f_32::sources::ConstF32, 3.5));
+
+auto output = core::bind_block(scope, core::block_inputs(scope));
+auto channels = core::output_channels<true, 2>(output.channels);
+auto input = core::block_inputs(constant);
+auto connections = core::input_connections<true, 2, 2>(input.downstream);
+connections.connect(0, channels.at(0));
+connections.connect(1, channels.at(1));
+input.downstream = connections.view();
+core::bind_block(constant, input);
+```
+
+`config_arg<Index>(factory, values...)` converts a JSON value using the actual
+factory parameter type. Indices exclude the first argument, `blockId`. Emit one
+value for a scalar, all elements as separate arguments for an array, and no
+values for an empty array. This always constructs an element list: `(1, 3, 7)`
+means three elements, even when a container also has count/fill constructors.
+Supply configured values or the parameter's JSON `default` from metadata;
+trailing omitted parameters may use the C++ factory defaults directly.
+
+`block_inputs` creates the input struct or an opaque empty value for inputless
+blocks. `bind_block` accepts that value and returns the complete output struct,
+using another empty value for `void` outputs. No signature branching is needed.
+
+`output_channels<Vectorized, Width>` owns a port and exposes `at(index)`. Scalar
+ports allow widths zero or one; vectorized ports initialize their channel
+storage once, retaining the output callable while its borrowed consumers are in
+use. The compile-time width must fit the callable's channel count type.
+`input_connections<Vectorized, Connections, Width>` owns connection storage and
+exposes `connect(channelIndex, value)` and `view()`. Flat span/pointer-array ports
+collect consumer pointers; grouped arrays keep fanout separate for each channel,
+including empty groups between connected channels. Scalar ports preserve their
+complete value, including custom structs and scalar arrays. C++ checks connection
+type compatibility. Invalid channel indices, connection capacity overflow, and
+undersized output ranges trap.
+
+Keep each input connection object alive and at the same address until the wiring
+call copies its view. Keep blocks and output channel objects alive through runtime
+shutdown. For cyclic graphs, retain inputs and connection objects for deferred
+wiring as well. Custom vectorized representations can specialize
+`core::InputConnections` and `core::detail::output_storage` in their headers;
+the builder continues to emit the same API calls.
+
+Ports whose channel count follows an array configuration parameter declare
+`@length_parameter <parameterId>` and optionally `@max_channels <count>`.
+The metadata contains `"length": {"parameter": "pins", "max": 8}` for GPIO input.
+The builder can validate indices against the configured array length (or its
+metadata default), capped by `max`, without identifying the block or element type.
+GPIO also rejects wiring beyond this limit in the library.
+
+GPIO factories call the optional HAL hook
+`register_gpio_block(u32 blockId, u16 port, const core::array<u8>& pins)` with
+the active pin list. Editor hosts implement this C linkage function and copy the
+list during the call. Hosts that omit it continue to work without an additional
+Wasm import. The builder no longer needs to generate GPIO registration code.
+
 ## Building
 
 Requires Clang 23, CMake 3.24 or newer, and a matching libstdc++ (GCC 14 on Ubuntu 24.04, because Clang 23 links with
@@ -169,6 +238,14 @@ scalar ports omit that property. Detection follows port
 types and their aliases, including grouped inputs and equivalent core array/span types.
 Each parameter object contains `id`, `namespace`,
 `name`, `description`, `icon`, and a `control` object describing the UI control (e.g., `type`, `min`, `max`, `step`).
+Factory defaults are also emitted as JSON `default` values: numbers, booleans,
+or arrays of those values. Zero, false, and empty arrays are preserved. Parameters
+without a default omit the property. Literal, signed literal, scalar brace/cast,
+and core array element-list/count/fill initializers are supported. Diagram
+builders use these values to fill omitted configuration and to omit properties
+equal to their defaults when exporting JSON, without decoding C++ declarations.
+Unsupported default expressions fail metadata generation and preserve the previous
+output, rather than silently turning an optional parameter into a required one.
 Factory parameters are documented in
 comments on the function using nested `@param <id> <Name>` followed by description text,
 `@icon <icon.svg>`, `@control <type>`, `@min`, `@max`, and `@step`, excluding `blockId`. Names come from
@@ -201,6 +278,13 @@ npm run typecheck
 
 `npm test` runs the metadata checks, and `npm run build:meta` generates metadata.
 The scripts still run directly with Node.js without a compilation step.
+
+With a matching local clang-wasm sysroot, exercise the freestanding runtime and
+diagram API with native Clang's Wasm backend:
+
+```sh
+node scripts/test-core-lib.mjs /path/to/clang-wasm/dist/sysroot clang++
+```
 
 ## Freestanding containers
 

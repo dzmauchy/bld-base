@@ -87,6 +87,28 @@ auto MockRuntime::activeGpioCount() -> u32 {
   return static_cast<u32>(std::ranges::count_if(instance().gpio_, isActive));
 }
 
+auto MockRuntime::registeredGpioCount() -> u32 { return instance().gpioBlocks_.size(); }
+auto MockRuntime::registeredGpioPort(u32 blockId) -> u16 {
+  return instance().gpioBlocks_.at(blockId).port;
+}
+auto MockRuntime::registeredGpioPinCount(u32 blockId) -> u32 {
+  return instance().gpioBlocks_.at(blockId).pins.size();
+}
+auto MockRuntime::registeredGpioPin(u32 blockId,
+                                    u32 index) -> u8 {
+  return instance().gpioBlocks_.at(blockId).pins.at(index);
+}
+
+void MockRuntime::handleRegisterGpio(u32                    blockId,
+                                     u16                    port,
+                                     const core::array<u8> &pins) {
+  auto &block = gpioBlocks_[blockId];
+  block.port = port;
+  block.pins.clear();
+  for (const auto pin : pins)
+    block.pins.push_back(pin);
+}
+
 auto MockRuntime::intervalPeriodAt(u32 index) -> u32 {
   auto active = instance().intervals_ | std::views::filter(isActive) | std::views::drop(index);
   if (auto it = std::ranges::begin(active); it != std::ranges::end(active)) {
@@ -176,6 +198,12 @@ void MockRuntime::fireGpio(u32 port,
 }
 
 extern "C" {
+
+void register_gpio_block(u32                    blockId,
+                         u16                    port,
+                         const core::array<u8> &pins) {
+  MockRuntime::instance().handleRegisterGpio(blockId, port, pins);
+}
 
 void on_close(core::function<void()> *cbk) { MockRuntime::instance().handleOnClose(cbk); }
 void on_start(core::function<void()> *cbk) { MockRuntime::instance().handleOnStart(cbk); }
