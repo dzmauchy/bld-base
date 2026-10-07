@@ -3,8 +3,11 @@
 
 #include <base/f32_blocks.hpp>
 #include <cmath>
+#include <functional>
 #include <limits>
+#include <numbers>
 #include <ranges>
+#include <span>
 #include <vector>
 
 #include "../mock_runtime.hpp"
@@ -105,6 +108,55 @@ TEST_SUITE("ConstF32") {
 
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "StaysSilentUntilStartThenReplacesDownstream") {
+    u32                      staleCalls = 0;
+    u32                      calls = 0;
+    f32                      last = 1.f;
+    std::function<void(f32)> stale = [&staleCalls](f32) { ++staleCalls; };
+    std::function<void(f32)> receive = [&calls, &last](const f32 value) {
+      ++calls;
+      last = value;
+    };
+    auto constant = ConstF32(1, 0.f);
+    constant({.downstream = std::array{&stale}});
+
+    MockRuntime::tick();
+    MockRuntime::close();
+    CHECK_EQ(staleCalls, 0);
+
+    MockRuntime::start();
+    CHECK_EQ(staleCalls, 1);
+    MockRuntime::tick();
+    CHECK_EQ(staleCalls, 1);
+
+    constant({.downstream = std::array{&receive}});
+    MockRuntime::start();
+    CHECK_EQ(staleCalls, 1);
+    CHECK(calls >= 1);
+    CHECK_EQ(last, 0.f);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "EmitsAgainWhenTheRuntimeStartsAgain") {
+    u32                      calls = 0;
+    f32                      last = 0.f;
+    std::function<void(f32)> receive = [&calls, &last](const f32 value) {
+      ++calls;
+      last = value;
+    };
+    auto constant = ConstF32(1, -2.5f);
+    constant({.downstream = std::array{&receive}});
+
+    MockRuntime::start();
+    CHECK_EQ(calls, 1);
+    CHECK_EQ(last, -2.5f);
+
+    MockRuntime::start();
+    CHECK_EQ(calls, 2);
+    CHECK_EQ(last, -2.5f);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  }
 }
 
 TEST_SUITE("UnaryTransformers") {
@@ -147,6 +199,37 @@ TEST_SUITE("UnaryTransformers") {
     MockRuntime::start();
 
     CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(std::sin(1.f)).epsilon(kEps));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ForwardsNonFiniteValuesAndSkipsNullSinks") {
+    u32                      leftCalls = 0;
+    u32                      rightCalls = 0;
+    f32                      left = 0.f;
+    f32                      right = 0.f;
+    std::function<void(f32)> leftSink = [&leftCalls, &left](const f32 value) {
+      ++leftCalls;
+      left = value;
+    };
+    std::function<void(f32)> rightSink = [&rightCalls, &right](const f32 value) {
+      ++rightCalls;
+      right = value;
+    };
+    auto sine = SinF32(1);
+    auto input = sine({.downstream = std::array<std::function<void(f32)> *, 3>{
+                           &leftSink, nullptr, &rightSink}})
+                     .consumer;
+
+    (*input)(std::numeric_limits<f32>::quiet_NaN());
+    CHECK_EQ(leftCalls, 1);
+    CHECK_EQ(rightCalls, 1);
+    CHECK(std::isnan(left));
+    CHECK(std::isnan(right));
+
+    (*input)(-std::numbers::pi_v<f32> / 2.f);
+    CHECK_EQ(leftCalls, 2);
+    CHECK_EQ(rightCalls, 2);
+    CHECK(left == doctest::Approx(-1.f).epsilon(kEps));
+    CHECK(right == doctest::Approx(-1.f).epsilon(kEps));
   }
 }
 
@@ -203,6 +286,99 @@ TEST_SUITE("ProductF32") {
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "LatchesTheLatestFiniteFactorsAndRepublishesThem") {
+    u32                      staleCalls = 0;
+    u32                      leftCalls = 0;
+    u32                      rightCalls = 0;
+    f32                      left = -1.f;
+    f32                      right = -1.f;
+    std::function<void(f32)> stale = [&staleCalls](f32) { ++staleCalls; };
+    std::function<void(f32)> leftSink = [&leftCalls, &left](const f32 value) {
+      ++leftCalls;
+      left = value;
+    };
+    std::function<void(f32)> rightSink = [&rightCalls, &right](const f32 value) {
+      ++rightCalls;
+      right = value;
+    };
+    auto product = ProductF32(1, 10);
+    (void)product({.downstream = std::array{&stale}});
+    auto inputs = product({.downstream = std::array<std::function<void(f32)> *, 3>{
+                               &leftSink, nullptr, &rightSink}})
+                      .channels(2);
+    (*inputs[0])(0.f);
+    (*inputs[1])(5.f);
+
+    MockRuntime::start();
+    CHECK_EQ(leftCalls, 0);
+    CHECK_EQ(rightCalls, 0);
+    MockRuntime::tick();
+    CHECK_EQ(staleCalls, 0);
+    CHECK_EQ(leftCalls, 1);
+    CHECK_EQ(rightCalls, 1);
+    CHECK_EQ(left, 0.f);
+    CHECK_EQ(right, 0.f);
+
+    (*inputs[0])(3.f);
+    MockRuntime::tick();
+    CHECK_EQ(leftCalls, 2);
+    CHECK_EQ(left, 15.f);
+    CHECK_EQ(right, 15.f);
+
+    MockRuntime::tick();
+    CHECK_EQ(leftCalls, 3);
+    CHECK_EQ(rightCalls, 3);
+    CHECK_EQ(left, 15.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "SuppressesANonFiniteProduct") {
+    u32                      calls = 0;
+    std::function<void(f32)> receive = [&calls](f32) { ++calls; };
+    auto                     product = ProductF32(1);
+    auto                     inputs = product({.downstream = std::array{&receive}}).channels(2);
+    (*inputs[0])(std::numeric_limits<f32>::max());
+    (*inputs[1])(2.f);
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_EQ(calls, 0);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "RebindDropsStaleFactorsUntilReplaced") {
+    u32                      calls = 0;
+    f32                      last = 0.f;
+    std::function<void(f32)> receive = [&calls, &last](const f32 value) {
+      ++calls;
+      last = value;
+    };
+    auto product = ProductF32(1, 10);
+    auto output = product({.downstream = std::array{&receive}});
+    auto inputs = output.channels(2);
+    (*inputs[0])(3.f);
+    (*inputs[1])(4.f);
+
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_EQ(calls, 1);
+    CHECK_EQ(last, 12.f);
+
+    auto rebound = output.channels(2);
+    MockRuntime::tick();
+    CHECK_EQ(calls, 1);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+
+    (*rebound[0])(2.f);
+    MockRuntime::tick();
+    CHECK_EQ(calls, 1);
+
+    (*rebound[1])(3.f);
+    MockRuntime::tick();
+    CHECK_EQ(calls, 2);
+    CHECK_EQ(last, 6.f);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  }
 }
 
 TEST_SUITE("SumF32") {
@@ -236,6 +412,25 @@ TEST_SUITE("SumF32") {
     MockRuntime::tick();
 
     CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "PublishesAnExactZeroSum") {
+    u32                      calls = 0;
+    f32                      last = 1.f;
+    std::function<void(f32)> receive = [&calls, &last](const f32 value) {
+      ++calls;
+      last = value;
+    };
+    auto sum = SumF32(1);
+    auto inputs = sum({.downstream = std::array{&receive}}).channels(2);
+    (*inputs[0])(5.f);
+    (*inputs[1])(-5.f);
+
+    MockRuntime::start();
+    MockRuntime::tick();
+
+    CHECK_EQ(calls, 1);
+    CHECK_EQ(last, 0.f);
   }
 }
 
@@ -298,6 +493,60 @@ TEST_SUITE("WaveGenerators") {
     MockRuntime::close();
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "SinGenScalesFrequencyAndNegativeAmplitude") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(1);
+    auto gen = SinGenF32(1, 10, 2.f, -3.f, 0.f);
+    gen({.downstream = sinks});
+
+    MockRuntime::setNow(0);
+    MockRuntime::tick();
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+
+    MockRuntime::start();
+    MockRuntime::setNow(125);
+    MockRuntime::tick();
+
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(-3.f).epsilon(1e-4f));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ZeroFrequencyHoldsThePhaseSample") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(1);
+    auto gen = CosGenF32(1, 10, 0.f, 2.f, std::numbers::pi_v<f32>);
+    gen({.downstream = sinks});
+
+    MockRuntime::setNow(100);
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(-2.f).epsilon(1e-4f));
+
+    MockRuntime::setNow(350);
+    MockRuntime::tick();
+    CHECK(MockRuntime::lastF32(0, 0) == doctest::Approx(-2.f).epsilon(1e-4f));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "RetargetKeepsTheStartTimeAndOneInterval") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(2);
+    auto gen = SinGenF32(1);
+    gen({.downstream = std::array{sinks[0]}});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+
+    MockRuntime::setNow(250);
+    gen({.downstream = std::array{sinks[1]}});
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+    MockRuntime::tick();
+
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+    CHECK(MockRuntime::lastF32(0, 1) == doctest::Approx(1.f).epsilon(1e-4f));
+  }
 }
 
 TEST_SUITE("RandGenF32") {
@@ -312,6 +561,26 @@ TEST_SUITE("RandGenF32") {
     MockRuntime::tick();
 
     CHECK_EQ(MockRuntime::lastF32(0, 0), 0.5f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ResamplesEachTickAndAppliesNonPositiveAmplitude") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(2);
+    auto negative = RandGenF32(1, 10, -2.f);
+    auto zero = RandGenF32(2, 10, 0.f);
+    negative({.downstream = std::array{sinks[0]}});
+    zero({.downstream = std::array{sinks[1]}});
+
+    MockRuntime::setRandom(0.25f);
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -0.5f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
+
+    MockRuntime::setRandom(0.5f);
+    MockRuntime::tick();
+    CHECK_EQ(MockRuntime::lastF32(0, 0), -1.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
   }
 }
 
@@ -350,6 +619,50 @@ TEST_SUITE("PulseGenF32") {
     MockRuntime::start();
 
     CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NegativeAmplitudeRepeatsWhileHighAndHonorsDutyEdges") {
+    u32                      highCalls = 0;
+    f32                      highLast = 1.f;
+    u32                      zeroCalls = 0;
+    f32                      zeroLast = 1.f;
+    u32                      fullCalls = 0;
+    f32                      fullLast = 0.f;
+    std::function<void(f32)> high = [&highCalls, &highLast](const f32 value) {
+      ++highCalls;
+      highLast = value;
+    };
+    std::function<void(f32)> zeroDutySink = [&zeroCalls, &zeroLast](const f32 value) {
+      ++zeroCalls;
+      zeroLast = value;
+    };
+    std::function<void(f32)> fullDutySink = [&fullCalls, &fullLast](const f32 value) {
+      ++fullCalls;
+      fullLast = value;
+    };
+    auto negative = PulseGenF32(1, 0.5f, -4.f, 2.f);
+    auto zeroDuty = PulseGenF32(2, 0.f, 3.f);
+    auto fullDuty = PulseGenF32(3, 1.f, 3.f, 2.f);
+    negative({.downstream = std::array{&high}});
+    zeroDuty({.downstream = std::array{&zeroDutySink}});
+    fullDuty({.downstream = std::array{&fullDutySink}});
+
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+    MockRuntime::tick();
+    CHECK_EQ(highCalls, 2);
+    CHECK_EQ(highLast, -4.f);
+    CHECK_EQ(zeroCalls, 2);
+    CHECK_EQ(zeroLast, 0.f);
+    CHECK_EQ(fullCalls, 2);
+    CHECK_EQ(fullLast, 3.f);
+
+    MockRuntime::setNow(250);
+    MockRuntime::tick();
+    CHECK_EQ(highLast, 0.f);
+    CHECK_EQ(zeroLast, 0.f);
+    CHECK_EQ(fullLast, 3.f);
   }
 }
 
@@ -417,6 +730,89 @@ TEST_SUITE("GpioInF32") {
     CHECK_EQ(MockRuntime::activeGpioCount(), 0);
     MockRuntime::emitGpio(0, 0, true);
     CHECK_FALSE(MockRuntime::hasF32(0, 0));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "CapsListenersAtEightPins") {
+    auto            scope = ScopeF32(0);
+    auto            channels = scope().channels(9);
+    std::vector<u8> pins(9);
+    std::vector<std::array<std::function<void(f32)> *, 1>> storage(9);
+    std::vector<std::span<std::function<void(f32)> *const>> groups;
+    groups.reserve(9);
+    for (u8 i = 0; i < 9; ++i) {
+      pins[i] = i;
+      storage[i][0] = channels[i];
+      groups.emplace_back(storage[i]);
+    }
+    auto gpio = GpioInF32(1, 2, std::move(pins));
+    gpio({.pins = groups});
+
+    CHECK_EQ(MockRuntime::activeGpioCount(), 8);
+    MockRuntime::emitGpio(2, 7, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 7), 1.f);
+    MockRuntime::emitGpio(2, 8, true);
+    CHECK_FALSE(MockRuntime::hasF32(0, 8));
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ShortConsumerListSkipsPinsWithoutAGroup") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(1);
+    auto gpio = GpioInF32(1, 0, {1, 2, 3});
+    gpio({.pins = {sinks}});
+
+    CHECK_EQ(MockRuntime::activeGpioCount(), 3);
+    MockRuntime::emitGpio(0, 1, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    MockRuntime::emitGpio(0, 3, false);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "DuplicatePinFeedsOnlyTheFirstGroup") {
+    u32                      firstCalls = 0;
+    u32                      secondCalls = 0;
+    std::function<void(f32)> first = [&firstCalls](f32) { ++firstCalls; };
+    std::function<void(f32)> second = [&secondCalls](f32) { ++secondCalls; };
+    auto                     gpio = GpioInF32(1, 4, {7, 7});
+    gpio({.pins = {std::array{&first}, std::array{&second}}});
+
+    MockRuntime::emitGpio(4, 7, true);
+
+    CHECK(firstCalls > 0);
+    CHECK_EQ(secondCalls, 0);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "SamePinOnAnotherPortStaysIsolated") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(2);
+    auto left = GpioInF32(1, 1, {4});
+    auto right = GpioInF32(2, 2, {4});
+    left({.pins = {std::array{sinks[0]}}});
+    right({.pins = {std::array{sinks[1]}}});
+
+    MockRuntime::emitGpio(1, 4, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    CHECK_FALSE(MockRuntime::hasF32(0, 1));
+
+    MockRuntime::emitGpio(2, 4, false);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "NullConsumerInAGroupIsSkipped") {
+    u32                      calls = 0;
+    f32                      last = 0.f;
+    std::function<void(f32)> receive = [&calls, &last](const f32 value) {
+      ++calls;
+      last = value;
+    };
+    std::array<std::function<void(f32)> *, 2> group{nullptr, &receive};
+    auto                                      gpio = GpioInF32(1, 0, {2});
+    gpio({.pins = {group}});
+
+    MockRuntime::emitGpio(0, 2, true);
+
+    CHECK_EQ(calls, 1);
+    CHECK_EQ(last, 1.f);
   }
 }
 
