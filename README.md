@@ -136,7 +136,10 @@ warning is harmless for AST generation.
 The output has `namespaces` and `blocks` arrays. Namespace entries use fully
 qualified IDs such as `push::f_32::sinks` and contain `id`, `name`, `description`,
 and `icon`. Block and port entries also contain `namespace`; blocks have `inputs`,
-`outputs`, and `parameters` arrays. Each parameter object contains `id`, `namespace`,
+`outputs`, and `parameters` arrays. Vectorized input and output ports include
+`"vectorized": true`; scalar ports omit that property. Detection follows port
+types and their aliases, including grouped inputs and equivalent standard container types.
+Each parameter object contains `id`, `namespace`,
 `name`, `description`, `icon`, and a `control` object describing the UI control
 (e.g., `type`, `min`, `max`, `step`). Constructor parameters are documented in
 comments on the constructor using nested `@param <id> <Name>` followed by description text,

@@ -34,7 +34,8 @@ test('generates all library ports, documentation, and only the requested metadat
         ? [...keys, 'inputs', 'outputs', 'parameters'].sort() : keys);
       for (const key of keys) assert.equal(typeof entry[key], 'string');
       for (const port of [...(entry.inputs ?? []), ...(entry.outputs ?? [])]) {
-        assert.deepEqual(Object.keys(port).sort(), entryKeys);
+        assert.deepEqual(Object.keys(port).sort(), port.vectorized ? [...entryKeys, 'vectorized'].sort() : entryKeys);
+        if ('vectorized' in port) assert.equal(port.vectorized, true);
         assert.ok(port.name && port.description && port.icon);
       }
       for (const parameter of entry.parameters ?? []) {
@@ -63,6 +64,11 @@ test('generates all library ports, documentation, and only the requested metadat
       const block = meta.blocks.find(entry => entry.id === name + precision);
       assert.ok(block, name + precision);
       assert.deepEqual([block.inputs.map(port => port.id), block.outputs.map(port => port.id)], ports);
+      assert.ok(block.inputs.every(port => port.vectorized === true), `${block.id} inputs`);
+      for (const port of block.outputs) {
+        if (port.id === 'channels') assert.equal(port.vectorized, true, `${block.id}.${port.id}`);
+        else assert.ok(!('vectorized' in port), `${block.id}.${port.id}`);
+      }
       assert.deepEqual(block.parameters.map(parameter => parameter.id), parameters);
     }
   }
@@ -95,21 +101,41 @@ test('reads unincluded headers, UTF-8 comments, and multiple fields; preserves o
     const fixtureScript = path.join(temporary, 'scripts/generate-meta.ts');
     await copyFile(script, fixtureScript);
     await writeFile(path.join(temporary, 'src/blocks.hpp'), `
+#include <functional>
+#include <vector>
+template <typename T> using VectorizedInput = std::vector<T*>;
+template <typename T> using VectorizedOutput = std::function<std::vector<T*>(unsigned char)>;
 template <typename I, typename O> class Block {};
 namespace example {
+using InputChannels = VectorizedInput<int>;
+typedef InputChannels ChannelAlias;
+using OutputChannels = VectorizedOutput<int>;
+struct InBase { ChannelAlias inherited; };
 /** Entrée
  * @brief Values supplied by callers.
  * @image input.svg
  */
-struct In {
+struct In : InBase {
   /** Première valeur
    * @brief First input.
    * @image first.svg
    */
   int first;
   int second;
+  InputChannels channels;
+  std::vector<ChannelAlias> groups;
+  std::vector<int*> raw;
+  std::vector<int> values;
 };
-struct Out { int result; int extra; };
+struct Out {
+  using LocalChannels = OutputChannels;
+  int result;
+  int extra;
+  LocalChannels channels;
+  VectorizedOutput<int> direct;
+  std::function<std::vector<int*>(unsigned char)> raw;
+  std::function<void(VectorizedInput<int>)> callback;
+};
 using Output = Out;
 template <typename I = In, typename O = Output>
 class Example : public Block<I, O> {};
@@ -127,10 +153,18 @@ class Source : public Block<I, void> {};
     const meta: Metadata = JSON.parse(generated);
     assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
     assert.equal(meta.blocks.length, 2);
-    assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['first', 'second']);
-    assert.deepEqual(meta.blocks[0].outputs.map(port => port.id), ['result', 'extra']);
-    assert.equal(meta.blocks[0].inputs[0].name, 'Première valeur');
-    assert.equal(meta.blocks[0].inputs[0].icon, 'first.svg');
+    assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['inherited', 'first', 'second', 'channels', 'groups', 'raw', 'values']);
+    assert.deepEqual(meta.blocks[0].outputs.map(port => port.id), ['result', 'extra', 'channels', 'direct', 'raw', 'callback']);
+    assert.deepEqual(meta.blocks[0].inputs.filter(port => port.vectorized).map(port => port.id), ['inherited', 'channels', 'groups', 'raw']);
+    assert.deepEqual(meta.blocks[0].outputs.filter(port => port.vectorized).map(port => port.id), ['channels', 'direct', 'raw']);
+    for (const port of [...meta.blocks[0].inputs, ...meta.blocks[0].outputs]) {
+      if (port.vectorized) assert.equal(port.vectorized, true);
+      else assert.ok(!('vectorized' in port));
+    }
+    const first = meta.blocks[0].inputs.find(port => port.id === 'first');
+    assert.ok(first);
+    assert.equal(first.name, 'Première valeur');
+    assert.equal(first.icon, 'first.svg');
     const source = meta.blocks.find(entry => entry.id === 'Source');
     assert.ok(source);
     assert.deepEqual(source.outputs, []);

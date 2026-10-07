@@ -61,9 +61,13 @@ export interface ParameterMetadata extends MetadataEntry {
   control: Record<string, unknown>;
 }
 
+export interface PortMetadata extends MetadataEntry {
+  vectorized?: true;
+}
+
 export interface BlockMetadata extends MetadataEntry {
-  inputs: MetadataEntry[];
-  outputs: MetadataEntry[];
+  inputs: PortMetadata[];
+  outputs: PortMetadata[];
   parameters: ParameterMetadata[];
 }
 
@@ -312,7 +316,39 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
       return parent && isBlock(parent, seen);
     });
   }
-  function ports(type: AstType, scope: string[]): MetadataEntry[] {
+  function firstTypeArgument(spelling: string): string | undefined {
+    const start = spelling.indexOf('<') + 1;
+    if (!start) return undefined;
+    let depth = 0;
+    for (let i = start; i < spelling.length; i++) {
+      const char = spelling[i];
+      if (depth === 0 && (char === ',' || char === '>')) return spelling.slice(start, i).trim();
+      if (char === '<' || char === '(') depth++;
+      else if (char === '>' || char === ')') depth--;
+    }
+  }
+
+  function isVectorized(type: AstType | undefined, scope: string[], seen = new Set<Declaration>()): boolean {
+    if (!type) return false;
+    for (const spelling of [type.qualType, type.desugaredQualType].filter(value => value !== undefined)) {
+      const name = spelling.split('<', 1)[0].replace(/^(?:(?:const|volatile)\s+)+/, '').trim();
+      if (/(?:^|::)Vectorized(?:Input|Output)$/.test(name)) return true;
+      const declaration = resolve(name, scope);
+      if (declaration && !seen.has(declaration) &&
+          (declaration.node.kind === 'TypeAliasDecl' || declaration.node.kind === 'TypedefDecl')) {
+        seen.add(declaration);
+        if (isVectorized(declaration.node.type, declaration.scope, seen)) return true;
+      }
+      if (/^std::(?:\w+::)*(?:vector|function)$/.test(name)) {
+        const argument = firstTypeArgument(spelling);
+        if (argument && (name.endsWith('::vector') && /\*\s*(?:(?:const|volatile)\s*)*$/.test(argument) ||
+            isVectorized({ qualType: argument }, scope, seen))) return true;
+      }
+    }
+    return false;
+  }
+
+  function ports(type: AstType, scope: string[]): PortMetadata[] {
     const spelling = type.desugaredQualType ?? type.qualType;
     if (spelling === 'void') return [];
     const declaration = resolve(spelling, scope);
@@ -326,7 +362,11 @@ function extractMetadata(ast: AstNode, sources: Map<string, Buffer>): Metadata {
     if (!declaration.node.completeDefinition) throw new Error(`Incomplete port struct: ${spelling}`);
     const inherited = (declaration.node.bases ?? []).flatMap(base => ports(base.type, declaration.scope));
     const fields = children(declaration.node).filter(child => child.kind === 'FieldDecl' && !child.isImplicit);
-    return [...inherited, ...fields.map(field => metadata(field, declaration.scope))];
+    return [...inherited, ...fields.map(field => {
+      const port: PortMetadata = metadata(field, declaration.scope);
+      if (isVectorized(field.type, [...declaration.scope, declaration.node.name ?? ''])) port.vectorized = true;
+      return port;
+    })];
   }
 
   function findConstructor(declaration: Declaration, seen = new Set<Declaration>()): { ctor: AstNode; decl: Declaration } | undefined {
