@@ -1,13 +1,6 @@
 #pragma once
 
 /**
- * math
- * @brief Numeric constants and trigonometry helpers.
- * @image math.svg
- */
-namespace math {}
-
-/**
  * Push Dataflows
  * @brief Push Dataflows
  * @image push-ns.svg

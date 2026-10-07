@@ -1,36 +1,29 @@
 #pragma once
 
-#include <base/native_block.hpp>
-#include <utility>
+#include <core/types.hpp>
+#include <functional>
+#include <memory>
+#include <vector>
 
-namespace push {
+namespace push::detail {
 
-/**
- * UnaryTransformer
- * @brief Transforms each received value and pushes the result downstream.
- * @image transformer.svg
- */
-template <typename I, typename O> class UnaryTransformer : public NativeBlock<I, O> {
-public:
+template <typename I,
+          typename O>
+std::function<O(I)> makeUnaryTransformer(const u32,
+                                         auto transform) {
   using T = I::Value;
-  using NativeBlock<I, O>::NativeBlock;
+  auto downstream = std::make_shared<std::vector<std::function<void(T)> *>>();
+  auto consumer = std::make_shared<std::function<void(T)>>([downstream, transform](const T value) {
+    const auto transformed = transform(value);
+    for (auto *sink : *downstream) {
+      if (sink)
+        (*sink)(transformed);
+    }
+  });
+  return [downstream, consumer](I input) {
+    downstream->assign(input.downstream.begin(), input.downstream.end());
+    return O{.consumer = consumer.get()};
+  };
+}
 
-  ~UnaryTransformer() override = default;
-
-  O apply(I input) override {
-    downstream = std::move(input.downstream);
-    return O{.consumer = &pushConsumer};
-  }
-
-protected:
-  [[nodiscard]]
-  virtual T transform(T value) const = 0;
-
-private:
-  void handlePush(const T value) { this->pushTo(downstream, transform(value)); }
-
-  VectorizedInput<Consumer<T>>                  downstream{};
-  MemberConsumer<&UnaryTransformer::handlePush> pushConsumer{this};
-};
-
-} // namespace push
+} // namespace push::detail

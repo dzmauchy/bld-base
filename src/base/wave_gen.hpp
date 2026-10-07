@@ -1,74 +1,32 @@
 #pragma once
 
 #include <base/periodic_source.hpp>
-#include <core/math/trig.hpp>
+#include <cmath>
+#include <functional>
+#include <numbers>
 
-namespace push {
+namespace push::detail {
 
-/**
- * WaveGen
- * @brief Samples a periodic wave using runtime time.
- * @image wave.svg
- */
-template <typename I> class WaveGen : public PeriodicSource<I> {
-public:
+template <typename I>
+std::function<void(I)> makeWaveGen(const u32,
+                                   const u32               precision,
+                                   const typename I::Value frequency,
+                                   const typename I::Value amplitude,
+                                   const typename I::Value phase,
+                                   auto                    wave) {
   using T = I::Value;
+  auto startedAt = std::make_shared<u64>(0);
+  return makePeriodicSource<I>(
+      precision,
+      [startedAt, frequency, amplitude, phase, wave] {
+        const auto elapsedSec = static_cast<T>(static_cast<f64>(get_time() - *startedAt) * 0.001);
+        constexpr auto twoPi = T{2} * std::numbers::pi_v<T>;
+        auto           angle = std::fmod(elapsedSec * frequency * twoPi + phase, twoPi);
+        if (angle < T{0})
+          angle += twoPi;
+        return amplitude * wave(angle);
+      },
+      [startedAt] { *startedAt = get_time(); });
+}
 
-  /**
-   * WaveGen
-   * @param precision Precision
-   *   Sampling interval in milliseconds.
-   *   @icon precision.svg
-   *   @control number
-   *   @min 1
-   *   @max 1000
-   *   @step 1
-   * @param frequency Frequency
-   *   Frequency of the generated wave in Hertz.
-   *   @icon frequency.svg
-   *   @control number
-   *   @min 0
-   *   @step 0.1
-   * @param amplitude Amplitude
-   *   Peak amplitude of the generated wave.
-   *   @icon amplitude.svg
-   *   @control number
-   * @param phase Phase
-   *   Initial phase offset in radians.
-   *   @icon phase.svg
-   *   @control number
-   */
-  explicit WaveGen(const u32 blockId,
-                   const u32 precision = 10,
-                   const T   frequency = 1,
-                   const T   amplitude = 1,
-                   const T   phase = 0)
-      : PeriodicSource<I>(blockId,
-                          precision),
-        frequency(frequency),
-        amplitude(amplitude),
-        phase(phase) {}
-
-  ~WaveGen() override = default;
-
-  const T frequency;
-  const T amplitude;
-  const T phase;
-
-protected:
-  void onStarted() override { t0 = get_time(); }
-
-  T sample() override {
-    const auto elapsedSec = static_cast<T>(static_cast<::f64>(get_time() - t0) * 0.001);
-    const auto angle = math::wrapTwoPi(elapsedSec * frequency * math::kTwoPi<T> + phase);
-    return amplitude * wave(angle);
-  }
-
-  [[nodiscard]]
-  virtual T wave(T angle) const = 0;
-
-private:
-  u64 t0{0};
-};
-
-} // namespace push
+} // namespace push::detail

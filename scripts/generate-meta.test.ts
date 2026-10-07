@@ -18,9 +18,9 @@ test('generates all library ports, documentation, and only the requested metadat
   const meta: Metadata = JSON.parse(generated);
   assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
   assert.equal(meta.blocks.length, 22);
-  assert.equal(meta.namespaces.length, 10);
+  assert.equal(meta.namespaces.length, 9);
   assert.deepEqual(meta.namespaces.map(entry => entry.id), [
-    'math', 'push', 'push::f_32', 'push::f_32::sinks', 'push::f_32::sources', 'push::f_32::transformers',
+    'push', 'push::f_32', 'push::f_32::sinks', 'push::f_32::sources', 'push::f_32::transformers',
     'push::f_64', 'push::f_64::sinks', 'push::f_64::sources', 'push::f_64::transformers',
   ]);
   const entryKeys = ['description', 'icon', 'id', 'name', 'namespace'] as const;
@@ -103,9 +103,9 @@ test('reads unincluded headers, UTF-8 comments, and multiple fields; preserves o
     await writeFile(path.join(temporary, 'src/blocks.hpp'), `
 #include <functional>
 #include <vector>
-template <typename T> using VectorizedInput = std::vector<T*>;
-template <typename T> using VectorizedOutput = std::function<std::vector<T*>(unsigned char)>;
-template <typename I, typename O> class Block {};
+#include <span>
+template <typename T> using VectorizedInput = std::span<T* const>;
+template <typename T> using VectorizedOutput = std::function<std::span<T* const>(unsigned char)>;
 namespace example {
 using InputChannels = VectorizedInput<int>;
 typedef InputChannels ChannelAlias;
@@ -125,6 +125,8 @@ struct In : InBase {
   InputChannels channels;
   std::vector<ChannelAlias> groups;
   std::vector<int*> raw;
+  std::span<int* const> view;
+  std::span<int> scalarView;
   std::vector<int> values;
 };
 struct Out {
@@ -134,13 +136,32 @@ struct Out {
   LocalChannels channels;
   VectorizedOutput<int> direct;
   std::function<std::vector<int*>(unsigned char)> raw;
+  std::function<std::span<int* const>(unsigned char)> view;
   std::function<void(VectorizedInput<int>)> callback;
 };
 using Output = Out;
-template <typename I = In, typename O = Output>
-class Example : public Block<I, O> {};
-template <typename I = In>
-class Source : public Block<I, void> {};
+/** Example
+ * @param gain Gain
+ *   Scales the values.
+ *   @icon gain.svg
+ *   @control number
+ *   @min 0
+ */
+inline std::function<Output(In)> Example(unsigned blockId, int gain = 1) { return {}; }
+using SourceCallable = std::function<void(In)>;
+typedef SourceCallable SourceFunction;
+inline auto Source(unsigned blockId) -> SourceFunction { return {}; }
+// Helpers and state classes do not describe public factories.
+struct State {};
+inline int helper(int value) { return value; }
+inline std::function<int()> scalarResult() { return {}; }
+inline std::function<void(int)> scalarInput() { return {}; }
+inline std::function<Out(In, In)> multipleArguments() { return {}; }
+inline std::function<std::vector<int*>()> channelBuilder() { return {}; }
+inline std::function<Out()> Sink(unsigned blockId) { return {}; }
+namespace detail {
+inline std::function<Output(In)> Internal(unsigned blockId) { return {}; }
+}
 }
 `);
     await writeFile(path.join(temporary, 'src/extra.hpp'), '/** Additional type */\nusing Extra = double;\n');
@@ -152,11 +173,11 @@ class Source : public Block<I, void> {};
     const generated = await readFile(output, 'utf8');
     const meta: Metadata = JSON.parse(generated);
     assert.deepEqual(Object.keys(meta).sort(), ['blocks', 'namespaces']);
-    assert.equal(meta.blocks.length, 2);
-    assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['inherited', 'first', 'second', 'channels', 'groups', 'raw', 'values']);
-    assert.deepEqual(meta.blocks[0].outputs.map(port => port.id), ['result', 'extra', 'channels', 'direct', 'raw', 'callback']);
-    assert.deepEqual(meta.blocks[0].inputs.filter(port => port.vectorized).map(port => port.id), ['inherited', 'channels', 'groups', 'raw']);
-    assert.deepEqual(meta.blocks[0].outputs.filter(port => port.vectorized).map(port => port.id), ['channels', 'direct', 'raw']);
+    assert.equal(meta.blocks.length, 3);
+    assert.deepEqual(meta.blocks[0].inputs.map(port => port.id), ['inherited', 'first', 'second', 'channels', 'groups', 'raw', 'view', 'scalarView', 'values']);
+    assert.deepEqual(meta.blocks[0].outputs.map(port => port.id), ['result', 'extra', 'channels', 'direct', 'raw', 'view', 'callback']);
+    assert.deepEqual(meta.blocks[0].inputs.filter(port => port.vectorized).map(port => port.id), ['inherited', 'channels', 'groups', 'raw', 'view']);
+    assert.deepEqual(meta.blocks[0].outputs.filter(port => port.vectorized).map(port => port.id), ['channels', 'direct', 'raw', 'view']);
     for (const port of [...meta.blocks[0].inputs, ...meta.blocks[0].outputs]) {
       if (port.vectorized) assert.equal(port.vectorized, true);
       else assert.ok(!('vectorized' in port));
@@ -168,6 +189,15 @@ class Source : public Block<I, void> {};
     const source = meta.blocks.find(entry => entry.id === 'Source');
     assert.ok(source);
     assert.deepEqual(source.outputs, []);
+    const sink = meta.blocks.find(entry => entry.id === 'Sink');
+    assert.ok(sink);
+    assert.deepEqual(sink.inputs, []);
+    assert.deepEqual(sink.outputs.map(port => port.id), meta.blocks[0].outputs.map(port => port.id));
+    const example = meta.blocks.find(entry => entry.id === 'Example');
+    assert.ok(example);
+    assert.deepEqual(example.parameters.map(parameter => parameter.id), ['gain']);
+    assert.deepEqual(example.parameters[0].control, { type: 'number', min: 0 });
+    assert.ok(!meta.namespaces.some(entry => entry.id.includes('detail')));
     await writeFile(path.join(temporary, 'src/extra.hpp'), '#error deliberate compiler failure\n');
     const failed = run(fixtureScript);
     assert.notEqual(failed.status, 0);

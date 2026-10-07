@@ -1,5 +1,8 @@
 #pragma once
 
+#include <functional>
+#include <span>
+
 using Bool = bool;
 
 using i8 = signed char;
@@ -14,12 +17,19 @@ using f32 = float;
 using f64 = double;
 
 /**
- * Consumer
- * @brief A stream of data that can be pushed to
- * @image consumer.svg
+ * VectorizedInput
+ * @brief A vectorized input port holding consumer pointers.
+ * @details Borrows its pointer list and consumers; both must remain alive at the same addresses
+ * while the view is used. Built-in blocks copy the pointer list when wired.
+ * @image type.svg
  */
-template <typename... Args> class Consumer {
-public:
-  virtual ~Consumer() = default;
-  virtual void operator()(Args... args) = 0;
-};
+template <typename T> using VectorizedInput = std::span<T *const>;
+
+/**
+ * VectorizedOutput
+ * @brief A vectorized output port accepting a channel count and returning consumer pointers.
+ * @details Owns its callable and returns a borrowed view. Keep the callable and its channel
+ * storage alive; rebuilding channels invalidates earlier views and consumer pointers.
+ * @image type.svg
+ */
+template <typename T> using VectorizedOutput = std::function<std::span<T *const>(u8)>;

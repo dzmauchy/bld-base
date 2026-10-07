@@ -1,45 +1,27 @@
 #pragma once
 
-#include <base/native_block.hpp>
-#include <utility>
+#include <core/hal.hpp>
+#include <functional>
+#include <memory>
+#include <vector>
 
-namespace push {
+namespace push::detail {
 
-/**
- * Constant
- * @brief Pushes a configured value when the runtime starts.
- * @image push.const.svg
- */
-template <typename I> class Constant : public NativeBlock<I, void> {
-public:
+template <typename I>
+std::function<void(I)> makeConstant(const u32,
+                                    const typename I::Value value = 1) {
   using T = I::Value;
+  auto downstream = std::make_shared<std::vector<std::function<void(T)> *>>();
+  auto start = std::make_shared<std::function<void()>>([downstream, value] {
+    for (auto *sink : *downstream) {
+      if (sink)
+        (*sink)(value);
+    }
+  });
+  return [downstream, start](I input) {
+    downstream->assign(input.downstream.begin(), input.downstream.end());
+    on_start(start.get());
+  };
+}
 
-  /**
-   * Constant
-   * @param value Value
-   *   Value emitted by the constant source.
-   *   @icon push.const.svg
-   *   @control number
-   */
-  explicit Constant(const u32 blockId,
-                    const T   value = 1)
-      : NativeBlock<I,
-                    void>(blockId),
-        value(value) {}
-
-  void apply(I input) override {
-    downstream = std::move(input.downstream);
-    this->onStart(startCb);
-  }
-
-  const T value;
-
-private:
-  void handleStart() { this->pushTo(downstream, value); }
-
-  VectorizedInput<Consumer<T>> downstream{};
-
-  MemberConsumer<&Constant::handleStart> startCb{this};
-};
-
-} // namespace push
+} // namespace push::detail

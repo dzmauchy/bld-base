@@ -1,61 +1,37 @@
 #pragma once
 
-#include <base/native_block.hpp>
-#include <core/maybe.hpp>
-#include <utility>
+#include <core/hal.hpp>
+#include <functional>
+#include <memory>
+#include <vector>
 
-namespace push {
+namespace push::detail {
 
-/**
- * PeriodicSource
- * @brief Emits sampled values at a configured interval.
- * @image source.svg
- */
-template <typename I> class PeriodicSource : public NativeBlock<I, void> {
-public:
+template <typename I>
+std::function<void(I)> makePeriodicSource(const u32 intervalMs,
+                                          auto      sample,
+                                          auto      onStarted) {
   using T = I::Value;
+  auto downstream = std::make_shared<std::vector<std::function<void(T)> *>>();
+  auto tick = std::make_shared<std::function<void()>>([downstream, sample]() mutable {
+    const auto value = sample();
+    for (auto *sink : *downstream) {
+      if (sink)
+        (*sink)(value);
+    }
+  });
+  auto close = std::make_shared<std::function<void()>>();
+  auto start =
+      std::make_shared<std::function<void()>>([intervalMs, tick, close, onStarted]() mutable {
+        onStarted();
+        const auto timer = set_interval(intervalMs, tick.get());
+        *close = [timer] { clear_interval(timer); };
+        on_close(close.get());
+      });
+  return [downstream, start](I input) {
+    downstream->assign(input.downstream.begin(), input.downstream.end());
+    on_start(start.get());
+  };
+}
 
-  ~PeriodicSource() override = default;
-
-  void apply(I input) override {
-    downstream = std::move(input.downstream);
-    this->onStart(startCb);
-  }
-
-  const u32 intervalMs;
-
-protected:
-  /**
-   * PeriodicSource
-   * @param intervalMs Interval
-   *   Emission interval in milliseconds.
-   *   @icon timer.svg
-   *   @control number
-   *   @min 1
-   *   @max 60000
-   *   @step 1
-   */
-  PeriodicSource(const u32 blockId,
-                 const u32 intervalMs)
-      : NativeBlock<I,
-                    void>(blockId),
-        intervalMs(intervalMs) {}
-
-  virtual void onStarted() {}
-  virtual T    sample() = 0;
-
-  VectorizedInput<Consumer<T>> downstream{};
-
-private:
-  void handleTick() { this->pushTo(downstream, sample()); }
-  void handleStart() {
-    onStarted();
-    this->armInterval(intervalMs, tickCb, closeCb);
-  }
-
-  MemberConsumer<&PeriodicSource::handleTick>                 tickCb{this};
-  MemberConsumer<&PeriodicSource::handleStart>                startCb{this};
-  Maybe<typename NativeBlock<I, void>::ClearIntervalCallback> closeCb{};
-};
-
-} // namespace push
+} // namespace push::detail

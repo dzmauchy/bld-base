@@ -1,95 +1,66 @@
 #pragma once
 
-#include <base/native_block.hpp>
+#include <cmath>
 #include <core/hal.hpp>
-#include <core/maybe.hpp>
-#include <utility>
+#include <functional>
+#include <limits>
+#include <memory>
 #include <vector>
 
-namespace push {
+namespace push::detail {
 
-template <typename I, typename O> class Aggregate : public NativeBlock<I, O> {
-public:
+template <typename I,
+          typename O>
+std::function<O(I)> makeAggregate(const u32,
+                                  const u32 precision,
+                                  auto      combine) {
   using T = I::Value;
-
-  /**
-   * Aggregate
-   * @param precision Precision
-   *   Interval in milliseconds for combining and emitting aggregated values.
-   *   @icon precision.svg
-   *   @control number
-   *   @min 1
-   *   @max 1000
-   *   @step 1
-   */
-  explicit Aggregate(const u32 blockId,
-                     const u32 precision = 10)
-      : NativeBlock<I,
-                    O>(blockId),
-        precision(precision) {}
-
-  ~Aggregate() override = default;
-
-  O apply(I input) override {
-    downstream = std::move(input.downstream);
-    return O{.channels = [this](const u8 count) { return bindInputs(count); }};
-  }
-
-  const u32 precision;
-
-protected:
-  [[nodiscard]]
-  virtual T combine(T acc,
-                    T value) const = 0;
-
-private:
-  void handleChannel(const u8 index,
-                     const T  value) {
-    values[index] = value;
-  }
-
-  void handleTick() { emitIfFinite(); }
-
-  void handleStart() { this->armInterval(precision, tickCb, closeCb); }
-
-  using Channel = IndexedMemberConsumer<&Aggregate::handleChannel>;
-
-  auto bindInputs(const u8 n) -> std::vector<Consumer<T> *> {
-    values.assign(n, nan_of<T>());
-    inputs.clear();
-    inputs.reserve(n);
-    for (u8 i = 0; i < n; ++i) {
-      inputs.emplace_back(this, i);
-    }
-    this->onStart(startCb);
-    return this->template pointersOf<T>(inputs);
-  }
-
-  void emitIfFinite() const {
-    if (values.empty()) {
+  auto downstream = std::make_shared<std::vector<std::function<void(T)> *>>();
+  auto values = std::make_shared<std::vector<T>>();
+  auto consumers = std::make_shared<std::vector<std::function<void(T)>>>();
+  auto tick = std::make_shared<std::function<void()>>([downstream, values, combine] {
+    if (values->empty())
       return;
-    }
-    for (auto value : values) {
-      if (!is_finite(value)) {
+    for (const auto value : *values) {
+      if (!std::isfinite(value))
         return;
+    }
+    auto acc = (*values)[0];
+    for (u32 i = 1; i < values->size(); ++i)
+      acc = combine(acc, (*values)[i]);
+    if (std::isfinite(acc)) {
+      for (auto *sink : *downstream) {
+        if (sink)
+          (*sink)(acc);
       }
     }
-    auto acc = values[0];
-    for (u32 i = 1; i < values.size(); ++i) {
-      acc = combine(acc, values[i]);
+  });
+  auto close = std::make_shared<std::function<void()>>();
+  auto start = std::make_shared<std::function<void()>>([precision, tick, close] {
+    const auto timer = set_interval(precision, tick.get());
+    *close = [timer] { clear_interval(timer); };
+    on_close(close.get());
+  });
+  auto channelPointers = std::make_shared<std::vector<std::function<void(T)> *>>();
+  VectorizedOutput<std::function<void(T)>> channels =
+      [values, consumers, channelPointers,
+       start](const u8 count) -> std::span<std::function<void(T)> *const> {
+    values->assign(count, std::numeric_limits<T>::quiet_NaN());
+    consumers->clear();
+    consumers->reserve(count);
+    channelPointers->clear();
+    channelPointers->reserve(count);
+    for (u8 i = 0; i < count; ++i) {
+      consumers->emplace_back([values, i](const T value) { (*values)[i] = value; });
+      channelPointers->push_back(&consumers->back());
     }
-    if (is_finite(acc)) {
-      this->pushTo(downstream, acc);
-    }
-  }
+    on_start(start.get());
+    return *channelPointers;
+  };
+  return [downstream, channels](I input) {
+    downstream->assign(input.downstream.begin(), input.downstream.end());
+    return O{.channels = channels};
+  };
+}
 
-  VectorizedInput<Consumer<T>> downstream{};
-
-  std::vector<T>                                           values{};
-  std::vector<Channel>                                     inputs{};
-  MemberConsumer<&Aggregate::handleTick>                   tickCb{this};
-  MemberConsumer<&Aggregate::handleStart>                  startCb{this};
-  Maybe<typename NativeBlock<I, O>::ClearIntervalCallback> closeCb{};
-};
-
-} // namespace push
+} // namespace push::detail

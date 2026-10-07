@@ -13,9 +13,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+if (CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
   add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
+endif ()
 
 option(BASE_BUILD_TESTS "Build tests" ON)
 
@@ -26,13 +26,13 @@ target_compile_features(base INTERFACE cxx_std_23)
 target_include_directories(
   base
   INTERFACE
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
 )
 
 install(DIRECTORY src/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} FILES_MATCHING PATTERN "*.hpp")
 
-if(BASE_BUILD_TESTS)
+if (BASE_BUILD_TESTS)
   include(FetchContent)
 
   set(DOCTEST_WITH_TESTS OFF CACHE BOOL "" FORCE)
@@ -60,4 +60,4 @@ if(BASE_BUILD_TESTS)
 
   include(CTest)
   add_test(NAME base_tests COMMAND base_tests)
-endif()
+endif ()
