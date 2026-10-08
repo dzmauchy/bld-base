@@ -4,6 +4,7 @@
 #include <base/f64_blocks.hpp>
 #include <cmath>
 #include <limits>
+#include <numbers>
 
 #include "../mock_runtime.hpp"
 
@@ -138,5 +139,46 @@ TEST_SUITE("f64 blocks") {
     MockRuntime::close();
     CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
     CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  }
+
+  TEST_CASE_FIXTURE(BlocksFixture, "ProductLatchAndZeroFrequencyPhase") {
+    u32                       calls = 0;
+    f64                       received = 1;
+    core::function<void(f64)> receive = [&](const f64 value) {
+      received = value;
+      ++calls;
+    };
+    auto product = ProductF64(1);
+    auto inputs = product({.downstream = std::array{&receive}}).channels(2);
+    (*inputs[0])(0);
+    (*inputs[1])(8);
+    MockRuntime::start();
+    CHECK_EQ(calls, 0);
+    MockRuntime::tick();
+    CHECK_EQ(calls, 1);
+    CHECK_EQ(received, 0);
+
+    (*inputs[0])(std::numeric_limits<f64>::max());
+    (*inputs[1])(2);
+    MockRuntime::tick();
+    CHECK_EQ(calls, 1);
+
+    f64                       wave = 0;
+    core::function<void(f64)> waveSink = [&](const f64 value) { wave = value; };
+    auto                      cosine = CosGenF64(2, 10, 0, 3, std::numbers::pi_v<f64>);
+    cosine({.downstream = std::array{&waveSink}});
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    MockRuntime::tick();
+    CHECK(wave == doctest::Approx(-3));
+    MockRuntime::setNow(5000);
+    MockRuntime::tick();
+    CHECK(wave == doctest::Approx(-3));
+
+    auto sine = SinF64(3);
+    f64  sineValue = 0;
+    core::function<void(f64)> sineSink = [&](const f64 value) { sineValue = value; };
+    (*sine({.downstream = std::array{&sineSink}}).consumer)(-std::numbers::pi_v<f64> / 2);
+    CHECK(sineValue == doctest::Approx(-1));
   }
 }

@@ -150,6 +150,9 @@ TEST_CASE("Core array has a size set at construction and copies raw buffers") {
   CHECK_NE(moved.data(), copy.data());
   core::array<int> range(copy.begin(), copy.end());
   CHECK_EQ(range.back(), 5);
+  CHECK_EQ(range.at(1), 5);
+  const core::array<int> &constant = range;
+  CHECK_EQ(constant.at(0), 4);
 }
 
 TEST_CASE("Core array destroys every element when its fixed storage is released") {
@@ -220,4 +223,92 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
     ThrowingCopy::copiesLeft = 100;
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
+}
+
+TEST_CASE("Core span borrows storage and can expose a shorter prefix") {
+  core::span<int> empty;
+  CHECK(empty.empty());
+  CHECK_EQ(empty.data(), nullptr);
+  CHECK_EQ(empty.begin(), empty.end());
+
+  int             values[]{1, 2, 3, 4};
+  core::span<int> full(values);
+  REQUIRE_EQ(full.size(), 4);
+  CHECK_EQ(full[3], 4);
+  auto prefix = full.first(2);
+  REQUIRE_EQ(prefix.size(), 2);
+  CHECK_EQ(prefix[1], 2);
+  prefix[1] = 9;
+  CHECK_EQ(values[1], 9);
+  CHECK(full.first(0).empty());
+  CHECK_EQ(full.first(full.size()).size(), 4);
+  CHECK_EQ(full.first(full.size())[3], 4);
+
+  core::array<int> owned{{5, 6, 7}};
+  core::span<int>  borrowed(owned);
+  REQUIRE_EQ(borrowed.size(), 3);
+  core::array<int> copied(borrowed.first(2));
+  borrowed[0] = 8;
+  CHECK_EQ(owned[0], 8);
+  REQUIRE_EQ(copied.size(), 2);
+  CHECK_EQ(copied[0], 5);
+  CHECK_EQ(copied[1], 6);
+}
+
+TEST_CASE("Core shared pointer keeps one object alive across copies and releases it once") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  {
+    core::shared_ptr<Tracked> empty;
+    CHECK_FALSE(empty);
+    CHECK_EQ(empty.get(), nullptr);
+    auto value = core::make_shared<Tracked>(4);
+    CHECK(static_cast<bool>(value));
+    CHECK_EQ(value->value, 4);
+    CHECK_EQ((*value).value, 4);
+    CHECK_EQ(Tracked::alive, 1);
+
+    auto copy = value;
+    CHECK_EQ(copy.get(), value.get());
+    copy->value = 9;
+    CHECK_EQ(value->value, 9);
+    CHECK_EQ(Tracked::alive, 1);
+
+    auto moved = std::move(value);
+    CHECK_FALSE(value);
+    CHECK_EQ(moved->value, 9);
+    auto swapped = core::make_shared<Tracked>(2);
+    moved.swap(swapped);
+    CHECK_EQ(moved->value, 2);
+    CHECK_EQ(swapped->value, 9);
+    CHECK_EQ(Tracked::alive, 2);
+
+    auto &alias = swapped;
+    swapped = alias;
+    CHECK_EQ(swapped.get(), alias.get());
+    CHECK_EQ(swapped->value, 9);
+    swapped = std::move(alias);
+    CHECK(swapped);
+    CHECK_EQ(swapped->value, 9);
+    CHECK_EQ(Tracked::alive, 2);
+
+    core::shared_ptr<Tracked> replacement = core::make_shared<Tracked>(1);
+    CHECK_EQ(Tracked::alive, 3);
+    replacement = std::move(swapped);
+    CHECK_FALSE(swapped);
+    CHECK_EQ(replacement->value, 9);
+    CHECK_EQ(Tracked::alive, 2);
+    replacement = empty;
+    CHECK_FALSE(replacement);
+    CHECK_EQ(Tracked::alive, 2);
+    copy.reset();
+    CHECK_EQ(Tracked::alive, 1);
+    moved.reset();
+    CHECK_EQ(Tracked::alive, 0);
+
+    auto again = core::make_shared<Tracked>(3);
+    CHECK_EQ(Tracked::alive, 1);
+    again = core::shared_ptr<Tracked>{};
+    CHECK_EQ(Tracked::alive, 0);
+  }
+  CHECK_EQ(Tracked::alive, 0);
 }

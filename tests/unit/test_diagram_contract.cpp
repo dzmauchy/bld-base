@@ -224,6 +224,22 @@ TEST_CASE("Empty signatures, zero connections, and zero output channels share th
   (void)empty;
 }
 
+TEST_CASE("Grouped connections keep an empty channel between connected channels") {
+  i32                                  first = 1;
+  i32                                  third = 3;
+  core::array<core::span<i32 *const>> port;
+  auto                                 connections = core::input_connections<true, 1, 3>(port);
+  connections.connect(0, &first);
+  connections.connect(2, &third);
+  auto groups = connections.view();
+  REQUIRE_EQ(groups.size(), 3);
+  REQUIRE_EQ(groups[0].size(), 1);
+  CHECK(groups[1].empty());
+  REQUIRE_EQ(groups[2].size(), 1);
+  CHECK_EQ(*groups[0][0], 1);
+  CHECK_EQ(groups[2][0], &third);
+}
+
 TEST_CASE("GPIO registration owns its configuration and applies the advertised channel limit") {
   MockRuntime::reset();
   core::array<u8> pins(10);
