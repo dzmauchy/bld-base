@@ -34,18 +34,22 @@ template <typename T> auto cosineFactory() {
 void configurationFactory(u32,
                           i32,
                           Bool,
-                          core::array<u8>) noexcept {}
+                          core::array<u8>,
+                          f32) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
   CHECK_EQ(core::config_arg<0>(configurationFactory, 3.75), 3);
+  CHECK_EQ(core::config_arg<0>(configurationFactory, -3.9), -3);
   CHECK(core::config_arg<1>(configurationFactory, true));
+  CHECK_FALSE(core::config_arg<1>(configurationFactory, false));
   const auto pins = core::config_arg<2>(configurationFactory, 1, 3, 7);
   REQUIRE_EQ(pins.size(), 3);
   CHECK_EQ(pins[0], 1);
   CHECK_EQ(pins[1], 3);
   CHECK_EQ(pins[2], 7);
   CHECK(core::config_arg<2>(configurationFactory).empty());
+  CHECK_EQ(core::config_arg<3>(configurationFactory, -1.5), f32{-1.5});
 }
 
 TEST_CASE_TEMPLATE("Uniform diagram calls wire fanout and copy temporary connection lists",
@@ -222,6 +226,41 @@ TEST_CASE("Empty signatures, zero connections, and zero output channels share th
   auto output = core::bind_block(scope, core::block_inputs(scope));
   auto empty = core::output_channels<true, 0>(output.channels);
   (void)empty;
+}
+
+TEST_CASE("Vectorized output calls its port once and keeps the returned channels") {
+  u32  calls = 0;
+  i32  first = 4;
+  i32  second = 6;
+  i32 *storage[]{&first, &second};
+  core::function<core::span<i32 *const>(u8)> port = [&](u8 count) {
+    ++calls;
+    CHECK_EQ(count, 2);
+    return core::span<i32 *const>{storage, count};
+  };
+  auto channels = core::output_channels<true, 2>(port);
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(channels.at(0), &first);
+  CHECK_EQ(channels.at(1), &second);
+  *channels.at(0) = 8;
+  CHECK_EQ(first, 8);
+  CHECK_EQ(calls, 1);
+
+  core::array<i32> values{{7, 9}};
+  auto             owned = core::output_channels<true, 2>(values);
+  owned.at(1) = 4;
+  CHECK_EQ(values[1], 9);
+  CHECK_EQ(owned.at(0), 7);
+  CHECK_EQ(owned.at(1), 4);
+}
+
+TEST_CASE("Unconnected grouped channels stay empty and keep their width") {
+  core::array<core::span<i32 *const>> port;
+  auto                                 connections = core::input_connections<true, 0, 2>(port);
+  auto                                 groups = connections.view();
+  REQUIRE_EQ(groups.size(), 2);
+  CHECK(groups[0].empty());
+  CHECK(groups[1].empty());
 }
 
 TEST_CASE("GPIO registration owns its configuration and applies the advertised channel limit") {

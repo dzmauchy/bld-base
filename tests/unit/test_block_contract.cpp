@@ -4,6 +4,7 @@
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
 #include <concepts>
+#include <limits>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -420,4 +421,198 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Periodic sources stay idle until start and honor configured intervals",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       sineValue = -1;
+  T                       sineCopy = -1;
+  T                       replaced = -1;
+  T                       pulseValue = -1;
+  T                       randomValue = -1;
+  T                       sumValue = -1;
+  u32                     sineCalls = 0;
+  u32                     copyCalls = 0;
+  u32                     replacedCalls = 0;
+  core::function<void(T)> sineSink = [&](const T value) {
+    sineValue = value;
+    ++sineCalls;
+  };
+  core::function<void(T)> sineOther = [&](const T value) {
+    sineCopy = value;
+    ++copyCalls;
+  };
+  core::function<void(T)> nextSink = [&](const T value) {
+    replaced = value;
+    ++replacedCalls;
+  };
+  core::function<void(T)> pulseSink = [&](const T value) { pulseValue = value; };
+  core::function<void(T)> randomSink = [&](const T value) { randomValue = value; };
+  core::function<void(T)> sumSink = [&](const T value) { sumValue = value; };
+  constexpr auto          Sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::SinGenF32;
+    else
+      return push::f_64::sources::SinGenF64;
+  }();
+  constexpr auto Pulse = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32;
+    else
+      return push::f_64::sources::PulseGenF64;
+  }();
+  constexpr auto Random = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::RandGenF32;
+    else
+      return push::f_64::sources::RandGenF64;
+  }();
+  constexpr auto Sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32;
+    else
+      return push::f_64::transformers::SumF64;
+  }();
+
+  // Wiring happens at 500 ms. The time base must be the later start instant.
+  MockRuntime::setNow(500);
+  auto sine = Sine(1, 25, T{1}, T{1}, T{0});
+  auto pulse = Pulse(2, T{0.5}, T{1}, T{1}, T{0});
+  auto random = Random(3, 40, T{2});
+  auto sum = Sum(4, 15);
+  sine({.downstream = std::array<core::function<void(T)> *, 3>{nullptr, &sineSink, &sineOther}});
+  pulse({.downstream = std::array{&pulseSink}});
+  random({.downstream = std::array{&randomSink}});
+  auto terms = sum({.downstream = std::array{&sumSink}}).channels(1);
+  (*terms[0])(T{4});
+
+  MockRuntime::setRandom(0.25f);
+  MockRuntime::tick();
+  CHECK_EQ(sineCalls, 0);
+  CHECK_EQ(copyCalls, 0);
+  CHECK_EQ(pulseValue, T{-1});
+  CHECK_EQ(randomValue, T{-1});
+  CHECK_EQ(sumValue, T{-1});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(sineCalls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 4);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(1), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(2), 40);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(3), 15);
+
+  MockRuntime::setNow(250);
+  MockRuntime::tick();
+  CHECK_EQ(sineCalls, 1);
+  CHECK_EQ(copyCalls, 1);
+  CHECK(sineValue == doctest::Approx(1).epsilon(1e-4));
+  CHECK(sineCopy == doctest::Approx(1).epsilon(1e-4));
+  CHECK_EQ(pulseValue, T{1});
+  CHECK_EQ(randomValue, T{0.5});
+  CHECK_EQ(sumValue, T{4});
+
+  sine({.downstream = std::array{&nextSink}});
+  MockRuntime::tick();
+  CHECK_EQ(sineCalls, 1);
+  CHECK_EQ(copyCalls, 1);
+  CHECK_EQ(replacedCalls, 1);
+  CHECK(replaced == doctest::Approx(1).epsilon(1e-4));
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 4);
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Sum folds forward from the first term",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       received = 0;
+  core::function<void(T)> sink = [&](const T value) { received = value; };
+  constexpr auto          Sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32;
+    else
+      return push::f_64::transformers::SumF64;
+  }();
+  const auto huge = static_cast<T>(1e20);
+  auto       sum = Sum(1, 10);
+  auto       terms = sum({.downstream = std::array{&sink}}).channels(3);
+  (*terms[0])(huge);
+  (*terms[1])(-huge);
+  (*terms[2])(T{1});
+  MockRuntime::start();
+  CHECK_EQ(received, T{0});
+  MockRuntime::tick();
+  CHECK_EQ(received, T{1});
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Product publishes after a missing factor becomes finite",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  u32                     calls = 0;
+  u32                     otherCalls = 0;
+  T                       received = 0;
+  T                       other = 0;
+  core::function<void(T)> sink = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  core::function<void(T)> otherSink = [&](const T value) {
+    other = value;
+    ++otherCalls;
+  };
+  constexpr auto Product = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::ProductF32;
+    else
+      return push::f_64::transformers::ProductF64;
+  }();
+  auto factors = Product(1, 10)(
+      {.downstream = std::array<core::function<void(T)> *, 3>{&sink, nullptr, &otherSink}});
+  auto inputs = factors.channels(2);
+
+  (*inputs[0])(T{5});
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(otherCalls, 0);
+
+  (*inputs[1])(T{4});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(otherCalls, 1);
+  CHECK_EQ(received, T{20});
+  CHECK_EQ(other, T{20});
+
+  (*inputs[0])(std::numeric_limits<T>::infinity());
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(otherCalls, 1);
+
+  const auto tiny = std::numeric_limits<T>::denorm_min();
+  REQUIRE(tiny != T{0});
+  REQUIRE(core::isfinite(tiny));
+  (*inputs[0])(tiny);
+  (*inputs[1])(T{2});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(otherCalls, 2);
+  CHECK_EQ(received, tiny * T{2});
+  CHECK_EQ(other, tiny * T{2});
+
+  MockRuntime::close();
+  (*inputs[0])(T{3});
+  (*inputs[1])(T{3});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(otherCalls, 2);
 }
