@@ -35,6 +35,9 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void elementFactory(u32,
+                    core::array<u8>,
+                    core::array<i32>) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -46,6 +49,18 @@ TEST_CASE("Factory configuration uses parameter positions and preserves array el
   CHECK_EQ(pins[1], 3);
   CHECK_EQ(pins[2], 7);
   CHECK(core::config_arg<2>(configurationFactory).empty());
+}
+
+TEST_CASE("Factory configuration truncates every array element toward zero") {
+  const auto pins = core::config_arg<0>(elementFactory, 1.9, 8.2);
+  REQUIRE_EQ(pins.size(), 2);
+  CHECK_EQ(pins[0], 1);
+  CHECK_EQ(pins[1], 8);
+  const auto terms = core::config_arg<1>(elementFactory, -2.8, 4.2, 0.0);
+  REQUIRE_EQ(terms.size(), 3);
+  CHECK_EQ(terms[0], -2);
+  CHECK_EQ(terms[1], 4);
+  CHECK_EQ(terms[2], 0);
 }
 
 TEST_CASE_TEMPLATE("Uniform diagram calls wire fanout and copy temporary connection lists",
@@ -169,6 +184,24 @@ TEST_CASE("Scalar ports transport a custom struct through the same wiring API") 
   core::bind_block(sink, core::detail::move(input));
   CHECK_EQ(received.tag, 42);
   CHECK(received.valid);
+}
+
+TEST_CASE("An unconnected scalar input is value-initialized") {
+  struct Message {
+    i32  tag;
+    Bool valid;
+  };
+  struct Inputs {
+    Message message{};
+  };
+  Message                      received{7, true};
+  core::function<void(Inputs)> sink = [&](Inputs input) { received = input.message; };
+  auto                         input = core::block_inputs(sink);
+  auto                         connections = core::input_connections<false, 1, 1>(input.message);
+  input.message = connections.view();
+  core::bind_block(sink, core::detail::move(input));
+  CHECK_EQ(received.tag, 0);
+  CHECK_FALSE(received.valid);
 }
 
 TEST_CASE("Vector output views retain consumer storage and support direct arrays") {

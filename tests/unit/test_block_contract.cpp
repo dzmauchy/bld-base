@@ -421,3 +421,52 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(calls, 3);
   MockRuntime::close();
 }
+
+TEST_CASE_TEMPLATE("Aggregates publish mixed signs instead of dropping them",
+                   T,
+                   f32,
+                   f64) {
+  constexpr auto Sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32;
+    else
+      return push::f_64::transformers::SumF64;
+  }();
+  constexpr auto Product = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::ProductF32;
+    else
+      return push::f_64::transformers::ProductF64;
+  }();
+
+  MockRuntime::reset();
+  T                       sumValue = 0;
+  T                       negativeProduct = 0;
+  T                       positiveProduct = 0;
+  core::function<void(T)> receiveSum = [&](const T value) { sumValue = value; };
+  core::function<void(T)> receiveNegative = [&](const T value) { negativeProduct = value; };
+  core::function<void(T)> receivePositive = [&](const T value) { positiveProduct = value; };
+  auto                    sum = Sum(1, 10);
+  auto                    negative = Product(2, 10);
+  auto                    positive = Product(3, 10);
+  auto                    sumOutput = sum({.downstream = std::array{&receiveSum}});
+  auto                    negativeOutput = negative({.downstream = std::array{&receiveNegative}});
+  auto                    positiveOutput = positive({.downstream = std::array{&receivePositive}});
+  auto                    terms = sumOutput.channels(3);
+  auto                    negativeFactors = negativeOutput.channels(2);
+  auto                    positiveFactors = positiveOutput.channels(2);
+  (*terms[0])(T{-8});
+  (*terms[1])(T{5});
+  (*terms[2])(T{-2});
+  (*negativeFactors[0])(T{-4});
+  (*negativeFactors[1])(T{3});
+  (*positiveFactors[0])(T{-4});
+  (*positiveFactors[1])(T{-3});
+
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(sumValue, T{-5});
+  CHECK_EQ(negativeProduct, T{-12});
+  CHECK_EQ(positiveProduct, T{12});
+  MockRuntime::close();
+}

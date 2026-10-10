@@ -101,3 +101,61 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
   }
   MockRuntime::close();
 }
+
+TEST_CASE_TEMPLATE("Pulse reduces phases beyond one turn and holds a zero frequency",
+                   T,
+                   f32,
+                   f64) {
+  constexpr auto amplitude = T{3};
+  constexpr auto beyondOneTurn = std::numbers::pi_v<T> * T{4.5};
+  constexpr auto lowPhase = std::numbers::pi_v<T> * T{1.5};
+  auto           pulse = [](u32 id,
+                            T   frequency,
+                            T   phase) {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32(id, T{0.5}, amplitude, frequency, phase);
+    else
+      return push::f_64::sources::PulseGenF64(id, T{0.5}, amplitude, frequency, phase);
+  };
+
+  MockRuntime::reset();
+  T                       positive = 0;
+  T                       negative = 0;
+  T                       frozenHigh = 0;
+  T                       frozenLow = 0;
+  core::function<void(T)> receivePositive = [&](const T value) { positive = value; };
+  core::function<void(T)> receiveNegative = [&](const T value) { negative = value; };
+  core::function<void(T)> receiveFrozenHigh = [&](const T value) { frozenHigh = value; };
+  core::function<void(T)> receiveFrozenLow = [&](const T value) { frozenLow = value; };
+  auto                    positivePulse = pulse(0, T{1}, beyondOneTurn);
+  auto                    negativePulse = pulse(1, T{1}, -beyondOneTurn);
+  auto                    highPulse = pulse(2, T{0}, T{0});
+  auto                    lowPulse = pulse(3, T{0}, lowPhase);
+  positivePulse({.downstream = std::array{&receivePositive}});
+  negativePulse({.downstream = std::array{&receiveNegative}});
+  highPulse({.downstream = std::array{&receiveFrozenHigh}});
+  lowPulse({.downstream = std::array{&receiveFrozenLow}});
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(positive, amplitude);
+  CHECK_EQ(negative, T{0});
+  CHECK_EQ(frozenHigh, amplitude);
+  CHECK_EQ(frozenLow, T{0});
+
+  MockRuntime::setNow(500);
+  MockRuntime::tick();
+  CHECK_EQ(positive, T{0});
+  CHECK_EQ(negative, amplitude);
+  CHECK_EQ(frozenHigh, amplitude);
+  CHECK_EQ(frozenLow, T{0});
+
+  MockRuntime::setNow(5000);
+  MockRuntime::tick();
+  CHECK_EQ(positive, amplitude);
+  CHECK_EQ(negative, T{0});
+  CHECK_EQ(frozenHigh, amplitude);
+  CHECK_EQ(frozenLow, T{0});
+  MockRuntime::close();
+}
