@@ -1,5 +1,9 @@
 #include <array>
+#include <cmath>
 #include <doctest/doctest.h>
+#include <limits>
+#include <numbers>
+#include <optional>
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
@@ -108,6 +112,67 @@ template <typename T> struct DualScopeOutput {
    */
   core::function<void(T)> *single{nullptr};
 };
+
+template <typename T> auto scopeFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sinks::ScopeF32;
+  else
+    return push::f_64::sinks::ScopeF64;
+}
+template <typename T> auto constantFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::ConstF32;
+  else
+    return push::f_64::sources::ConstF64;
+}
+template <typename T> auto sineFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::SinGenF32;
+  else
+    return push::f_64::sources::SinGenF64;
+}
+template <typename T> auto cosineGeneratorFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::CosGenF32;
+  else
+    return push::f_64::sources::CosGenF64;
+}
+template <typename T> auto cosineFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::CosF32;
+  else
+    return push::f_64::transformers::CosF64;
+}
+template <typename T> auto productFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::ProductF32;
+  else
+    return push::f_64::transformers::ProductF64;
+}
+template <typename T> auto sumFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::SumF32;
+  else
+    return push::f_64::transformers::SumF64;
+}
+template <typename T> auto gpioFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::GpioInF32;
+  else
+    return push::f_64::sources::GpioInF64;
+}
+template <typename T> T scopeSample(u32 blockId, u8 channel) {
+  if constexpr (std::is_same_v<T, f32>)
+    return MockRuntime::lastF32(blockId, channel);
+  else
+    return MockRuntime::lastF64(blockId, channel);
+}
+template <typename T> bool scopeHas(u32 blockId, u8 channel) {
+  if constexpr (std::is_same_v<T, f32>)
+    return MockRuntime::hasF32(blockId, channel);
+  else
+    return MockRuntime::hasF64(blockId, channel);
+}
 
 template <typename O> core::function<O()> DualScope(u32 blockId) {
   using T = O::Value;
@@ -420,4 +485,198 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Product folds left to right and suppresses an overflowing partial",
+                   T,
+                   f32,
+                   f64) {
+  const auto big = std::ldexp(T{1}, std::is_same_v<T, f32> ? 100 : 1000);
+  const auto small = std::ldexp(T{1}, std::is_same_v<T, f32> ? -100 : -1000);
+  const auto folded = [](T first, T second, T third) {
+    MockRuntime::reset();
+    auto scope = scopeFactory<T>()(0, 60, 10);
+    auto product = productFactory<T>()(1, 10);
+    auto output = product({.downstream = scope().channels(1)});
+    auto channels = output.channels(3);
+    std::array sources{
+        constantFactory<T>()(2, first),
+        constantFactory<T>()(3, second),
+        constantFactory<T>()(4, third),
+    };
+    for (u8 index = 0; index < sources.size(); ++index)
+      sources[index]({.downstream = std::array{channels[index]}});
+    MockRuntime::start();
+    MockRuntime::tick();
+    std::optional<T> result;
+    if (scopeHas<T>(0, 0))
+      result = scopeSample<T>(0, 0);
+    MockRuntime::close();
+    return result;
+  };
+
+  const auto finite = folded(big, small, big);
+  REQUIRE(finite.has_value());
+  CHECK_EQ(*finite, big);
+  CHECK_FALSE(folded(big, big, small).has_value());
+}
+
+TEST_CASE_TEMPLATE("Sum folds left to right and loses a term smaller than the partial",
+                   T,
+                   f32,
+                   f64) {
+  const auto big = std::ldexp(T{1}, std::is_same_v<T, f32> ? 100 : 1000);
+  MockRuntime::reset();
+  auto scope = scopeFactory<T>()(0, 60, 10);
+  auto sum = sumFactory<T>()(1, 10);
+  auto output = sum({.downstream = scope().channels(1)});
+  auto channels = output.channels(3);
+  std::array sources{
+      constantFactory<T>()(2, big),
+      constantFactory<T>()(3, T{1}),
+      constantFactory<T>()(4, -big),
+  };
+  for (u8 index = 0; index < sources.size(); ++index)
+    sources[index]({.downstream = std::array{channels[index]}});
+  MockRuntime::start();
+  MockRuntime::tick();
+  REQUIRE(scopeHas<T>(0, 0));
+  CHECK_EQ(scopeSample<T>(0, 0), T{0});
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Negative lobes and a zero-frequency sine stay on the configured wave",
+                   T,
+                   f32,
+                   f64) {
+  constexpr auto eps = std::is_same_v<T, f32> ? 1e-4 : 1e-9;
+  MockRuntime::reset();
+  auto scope = scopeFactory<T>()(0, 60, 10);
+  auto output = scope();
+  auto sinks = output.channels(4);
+  auto cosine = cosineGeneratorFactory<T>()(1, 10, T{1}, T{1}, T{0});
+  auto sine = sineFactory<T>()(2, 10, T{1}, T{1}, T{0});
+  auto held = sineFactory<T>()(3, 10, T{0}, T{4}, std::numbers::pi_v<T> / T{2});
+  auto cosineInput = cosineFactory<T>()(4);
+  cosine({.downstream = std::array{sinks[0]}});
+  sine({.downstream = std::array{sinks[1]}});
+  held({.downstream = std::array{sinks[2]}});
+  auto transformed = cosineInput({.downstream = std::array{sinks[3]}});
+  (*transformed.consumer)(std::numbers::pi_v<T>);
+  CHECK(scopeSample<T>(0, 3) == doctest::Approx(T{-1}).epsilon(eps));
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 3);
+  MockRuntime::tick();
+  CHECK_EQ(scopeSample<T>(0, 0), T{1});
+  CHECK_EQ(scopeSample<T>(0, 1), T{0});
+  CHECK(scopeSample<T>(0, 2) == doctest::Approx(T{4}).epsilon(eps));
+
+  MockRuntime::setNow(500);
+  MockRuntime::tick();
+  CHECK(scopeSample<T>(0, 0) == doctest::Approx(T{-1}).epsilon(eps));
+  CHECK(scopeSample<T>(0, 2) == doctest::Approx(T{4}).epsilon(eps));
+
+  MockRuntime::setNow(750);
+  MockRuntime::tick();
+  CHECK(scopeSample<T>(0, 1) == doctest::Approx(T{-1}).epsilon(eps));
+  CHECK(scopeSample<T>(0, 2) == doctest::Approx(T{4}).epsilon(eps));
+
+  MockRuntime::setNow(5000);
+  MockRuntime::tick();
+  CHECK(scopeSample<T>(0, 2) == doctest::Approx(T{4}).epsilon(eps));
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+}
+
+TEST_CASE_TEMPLATE("Constants forward NaN and infinities",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  auto scope = scopeFactory<T>()(0, 60, 10);
+  auto output = scope();
+  auto sinks = output.channels(3);
+  auto nan = constantFactory<T>()(1, std::numeric_limits<T>::quiet_NaN());
+  auto positive = constantFactory<T>()(2, std::numeric_limits<T>::infinity());
+  auto negative = constantFactory<T>()(3, -std::numeric_limits<T>::infinity());
+  nan({.downstream = std::array{sinks[0]}});
+  positive({.downstream = std::array{sinks[1]}});
+  negative({.downstream = std::array{sinks[2]}});
+  MockRuntime::start();
+  CHECK(std::isnan(scopeSample<T>(0, 0)));
+  CHECK(std::isinf(scopeSample<T>(0, 1)));
+  CHECK(scopeSample<T>(0, 1) > T{0});
+  CHECK(std::isinf(scopeSample<T>(0, 2)));
+  CHECK(scopeSample<T>(0, 2) < T{0});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("GPIO input follows later levels on the same pin",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  auto scope = scopeFactory<T>()(0, 60, 10);
+  auto output = scope();
+  auto sinks = output.channels(1);
+  auto gpio = gpioFactory<T>()(1, 4, core::array<u8>(1, u8{6}));
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{sinks}}});
+  MockRuntime::start();
+  MockRuntime::emitGpio(4, 6, true);
+  CHECK_EQ(scopeSample<T>(0, 0), T{1});
+  MockRuntime::emitGpio(4, 6, false);
+  CHECK_EQ(scopeSample<T>(0, 0), T{0});
+  MockRuntime::emitGpio(4, 6, true);
+  CHECK_EQ(scopeSample<T>(0, 0), T{1});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(4, 6, false);
+  CHECK_EQ(scopeSample<T>(0, 0), T{1});
+}
+
+TEST_CASE_TEMPLATE("Blocks connected after start stay idle until the next start",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  MockRuntime::setNow(1000);
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+
+  auto scope = scopeFactory<T>()(0, 60, 10);
+  auto output = scope();
+  auto sinks = output.channels(2);
+  auto sine = sineFactory<T>()(1, 25, T{1}, T{1}, T{0});
+  auto sum = sumFactory<T>()(2, 15);
+  sine({.downstream = std::array{sinks[0]}});
+  auto terms = sum({.downstream = std::array{sinks[1]}});
+  auto channels = terms.channels(1);
+  (*channels[0])(T{6});
+  MockRuntime::tick();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  CHECK_FALSE(scopeHas<T>(0, 0));
+  CHECK_FALSE(scopeHas<T>(0, 1));
+
+  MockRuntime::setNow(1250);
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 2);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(1), 15);
+  CHECK_FALSE(scopeHas<T>(0, 0));
+  CHECK_FALSE(scopeHas<T>(0, 1));
+  MockRuntime::tick();
+  CHECK_EQ(scopeSample<T>(0, 0), T{0});
+  CHECK_EQ(scopeSample<T>(0, 1), T{6});
+
+  MockRuntime::setNow(1500);
+  MockRuntime::tick();
+  constexpr auto eps = std::is_same_v<T, f32> ? 1e-4 : 1e-9;
+  CHECK(scopeSample<T>(0, 0) == doctest::Approx(T{1}).epsilon(eps));
+  CHECK_EQ(scopeSample<T>(0, 1), T{6});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 2);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
 }
