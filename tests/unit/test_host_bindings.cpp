@@ -1,5 +1,7 @@
 #include <array>
+#include <cmath>
 #include <doctest/doctest.h>
+#include <limits>
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
@@ -99,5 +101,116 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
     CHECK(sineValue == doctest::Approx(time == 0 ? -1 : 1));
     CHECK_EQ(pulseValue, time == 0 ? T{0} : T{1});
   }
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("A zero amplitude sine publishes exact zero as time advances",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       received = T{99};
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  auto sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::SinGenF32(0, 10, T{1}, T{0}, T{0});
+    else
+      return push::f_64::sources::SinGenF64(0, 10, T{1}, T{0}, T{0});
+  }();
+  sine({.downstream = std::array{&receive}});
+  MockRuntime::start();
+  for (const u64 time : {u64{0}, u64{250}}) {
+    MockRuntime::setNow(time);
+    MockRuntime::tick();
+    CHECK_EQ(received, T{0});
+  }
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("A negative pulse frequency inverts the high window",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  constexpr T             amplitude = T{4};
+  T                       received = T{99};
+  core::function<void(T)> receive = [&](const T value) { received = value; };
+  auto                    pulse = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32(0, T{0.5}, amplitude, T{-1}, T{0});
+    else
+      return push::f_64::sources::PulseGenF64(0, T{0.5}, amplitude, T{-1}, T{0});
+  }();
+  pulse({.downstream = std::array{&receive}});
+  MockRuntime::start();
+  for (const u64 time : {u64{0}, u64{250}, u64{750}}) {
+    MockRuntime::setNow(time);
+    MockRuntime::tick();
+    CHECK_EQ(received, time == 250 ? T{0} : amplitude);
+  }
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("A negative pulse duty stays low through the high half of the period",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  constexpr T             amplitude = T{4};
+  T                       received = amplitude;
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  auto pulse = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32(0, T{-0.25}, amplitude, T{1}, T{0});
+    else
+      return push::f_64::sources::PulseGenF64(0, T{-0.25}, amplitude, T{1}, T{0});
+  }();
+  pulse({.downstream = std::array{&receive}});
+  MockRuntime::start();
+  for (const u64 time : {u64{0}, u64{100}, u64{250}}) {
+    MockRuntime::setNow(time);
+    MockRuntime::tick();
+    CHECK_EQ(received, T{0});
+  }
+  CHECK_EQ(calls, 3);
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Sine publishes the NaN result of an infinite input",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  bool                    delivered = false;
+  T                       received = T{1};
+  core::function<void(T)> receive = [&](const T value) {
+    delivered = true;
+    received = value;
+  };
+  auto sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SinF32(0);
+    else
+      return push::f_64::transformers::SinF64(0);
+  }();
+  auto input = sine({.downstream = std::array{&receive}}).consumer;
+  REQUIRE(input != nullptr);
+  (*input)(std::numeric_limits<T>::infinity());
+  CHECK(delivered);
+  CHECK(std::isnan(received));
+  delivered = false;
+  (*input)(T{0});
+  CHECK(delivered);
+  CHECK_EQ(received, T{0});
   MockRuntime::close();
 }

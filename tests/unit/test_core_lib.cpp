@@ -92,6 +92,45 @@ TEST_CASE("Core function supports free functions, references, void and move-only
   CHECK_EQ(converted(), 9);
 }
 
+TEST_CASE("Core function swap exchanges live targets and empty assignment releases them") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  {
+    core::function<int()> left = [value = Tracked{1}] { return value.value; };
+    core::function<int()> right = [value = Tracked{2}] { return value.value; };
+    CHECK_EQ(Tracked::alive, 2);
+    left.swap(right);
+    CHECK_EQ(left(), 2);
+    CHECK_EQ(right(), 1);
+    CHECK_EQ(Tracked::alive, 2);
+    core::function<int()> empty;
+    left = empty;
+    CHECK_FALSE(left);
+    CHECK_EQ(right(), 1);
+    CHECK_EQ(Tracked::alive, 1);
+  }
+  CHECK_EQ(Tracked::alive, 0);
+}
+
+TEST_CASE("Core array copies a span instead of borrowing its storage") {
+  int             raw[]{1, 2, 3};
+  core::span<int> view(raw);
+  CHECK_EQ(view.size(), 3);
+  raw[0] = 9;
+  CHECK_EQ(view[0], 9);
+  core::array<int> copied(view);
+  raw[0] = 4;
+  view[1] = 8;
+  CHECK_EQ(copied.size(), 3);
+  CHECK_EQ(copied[0], 9);
+  CHECK_EQ(copied[1], 2);
+  CHECK_EQ(copied[2], 3);
+  CHECK_NE(copied.data(), view.data());
+  core::span<int>  emptyView;
+  core::array<int> fromEmpty(emptyView);
+  CHECK(fromEmpty.empty());
+  CHECK_EQ(fromEmpty.data(), nullptr);
+}
+
 TEST_CASE("Core function releases captured objects on replacement and destruction") {
   REQUIRE_EQ(Tracked::alive, 0);
   {
