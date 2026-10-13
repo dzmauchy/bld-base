@@ -4,6 +4,7 @@
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
 #include <concepts>
+#include <numbers>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -126,6 +127,31 @@ template <typename O> core::function<O()> DualScope(u32 blockId) {
   return [first, second] {
     return O{.channels = first().channels, .single = second().channels(1)[0]};
   };
+}
+
+template <typename T> auto sineTransformer() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::SinF32;
+  else
+    return push::f_64::transformers::SinF64;
+}
+template <typename T> auto productFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::ProductF32;
+  else
+    return push::f_64::transformers::ProductF64;
+}
+template <typename T> auto sineGenerator() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::SinGenF32;
+  else
+    return push::f_64::sources::SinGenF64;
+}
+template <typename T> auto gpioFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::GpioInF32;
+  else
+    return push::f_64::sources::GpioInF64;
 }
 
 } // namespace
@@ -420,4 +446,165 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Unary rewire keeps the consumer and drops the previous downstream",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       first = -1;
+  T                       second = -1;
+  u32                     firstCalls = 0;
+  u32                     secondCalls = 0;
+  core::function<void(T)> left = [&](const T value) {
+    first = value;
+    ++firstCalls;
+  };
+  core::function<void(T)> right = [&](const T value) {
+    second = value;
+    ++secondCalls;
+  };
+  auto sine = sineTransformer<T>()(1);
+  auto wired = sine({.downstream = std::array{&left}});
+  auto *consumer = wired.consumer;
+  REQUIRE(consumer != nullptr);
+  (*consumer)(T{0});
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(first, T{0});
+  CHECK_EQ(secondCalls, 0);
+
+  auto rebound = sine({.downstream = std::array{&right}});
+  CHECK_EQ(rebound.consumer, consumer);
+  (*consumer)(std::numbers::pi_v<T> / T{2});
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(first, T{0});
+  CHECK_EQ(secondCalls, 1);
+  constexpr auto eps = std::is_same_v<T, f32> ? 1e-4 : 1e-9;
+  CHECK(second == doctest::Approx(T{1}).epsilon(eps));
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+}
+
+TEST_CASE_TEMPLATE("Aggregate rewire keeps latched factors and drops the previous downstream",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       first = -1;
+  T                       second = -1;
+  u32                     firstCalls = 0;
+  u32                     secondCalls = 0;
+  core::function<void(T)> left = [&](const T value) {
+    first = value;
+    ++firstCalls;
+  };
+  core::function<void(T)> right = [&](const T value) {
+    second = value;
+    ++secondCalls;
+  };
+  auto product = productFactory<T>()(1, 10);
+  auto output = product({.downstream = std::array{&left}});
+  auto inputs = output.channels(2);
+  (*inputs[0])(T{3});
+  (*inputs[1])(T{4});
+  MockRuntime::start();
+  CHECK_EQ(firstCalls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::tick();
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(first, T{12});
+  CHECK_EQ(secondCalls, 0);
+
+  product({.downstream = std::array{&right}});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::tick();
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(first, T{12});
+  CHECK_EQ(secondCalls, 1);
+  CHECK_EQ(second, T{12});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(secondCalls, 1);
+}
+
+TEST_CASE_TEMPLATE("GPIO listens again after close without reviving the old listener",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       first = -1;
+  T                       second = -1;
+  u32                     firstCalls = 0;
+  u32                     secondCalls = 0;
+  core::function<void(T)> left = [&](const T value) {
+    first = value;
+    ++firstCalls;
+  };
+  core::function<void(T)> right = [&](const T value) {
+    second = value;
+    ++secondCalls;
+  };
+  auto gpio = gpioFactory<T>()(1, 4, core::array<u8>(1, u8{2}));
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{std::array{&left}}}});
+  CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+  MockRuntime::emitGpio(4, 2, true);
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(first, T{1});
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(4, 2, false);
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(first, T{1});
+
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{std::array{&right}}}});
+  CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+  MockRuntime::emitGpio(4, 2, false);
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(secondCalls, 1);
+  CHECK_EQ(second, T{0});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(4, 2, true);
+  CHECK_EQ(secondCalls, 1);
+  CHECK_EQ(second, T{0});
+}
+
+TEST_CASE_TEMPLATE("Close before start still arms one generator and close silences it",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       received = -1;
+  u32                     calls = 0;
+  core::function<void(T)> sink = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  MockRuntime::setNow(500);
+  auto sine = sineGenerator<T>()(1, 25, T{1}, T{1}, T{0});
+  sine({.downstream = std::array{&sink}});
+  MockRuntime::close();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
+  MockRuntime::setNow(250);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  constexpr auto eps = std::is_same_v<T, f32> ? 1e-4 : 1e-9;
+  CHECK(received == doctest::Approx(T{1}).epsilon(eps));
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::setNow(500);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK(received == doctest::Approx(T{1}).epsilon(eps));
 }
