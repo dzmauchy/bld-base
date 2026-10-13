@@ -221,3 +221,87 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
 }
+
+TEST_CASE("Core function copy and move assignment replace a distinct target") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  core::function<int()> left = [value = Tracked{1}]() mutable { return ++value.value; };
+  core::function<int()> right = [value = Tracked{10}]() mutable { return ++value.value; };
+  CHECK_EQ(Tracked::alive, 2);
+  left = right;
+  CHECK_EQ(Tracked::alive, 2);
+  CHECK_EQ(left(), 11);
+  CHECK_EQ(right(), 11);
+  CHECK_EQ(left(), 12);
+  CHECK_EQ(right(), 12);
+
+  core::function<int()> source = [value = Tracked{4}] { return value.value; };
+  CHECK_EQ(Tracked::alive, 3);
+  left = std::move(source);
+  CHECK_FALSE(source);
+  CHECK_EQ(left(), 4);
+  CHECK_EQ(right(), 13);
+  CHECK_EQ(Tracked::alive, 2);
+
+  core::function<int()> empty;
+  left = empty;
+  CHECK_FALSE(left);
+  CHECK_EQ(right(), 14);
+  CHECK_EQ(Tracked::alive, 1);
+  right = nullptr;
+  CHECK_EQ(Tracked::alive, 0);
+}
+
+TEST_CASE("Core array swap exchanges buffers and copy assignment drops the old elements") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  {
+    core::array<Tracked> left(2);
+    left[0].value = 1;
+    left[1].value = 2;
+    core::array<Tracked> right(1);
+    right[0].value = 3;
+    CHECK_EQ(Tracked::alive, 3);
+    auto *leftData = left.data();
+    auto *rightData = right.data();
+    left.swap(right);
+    CHECK_EQ(Tracked::alive, 3);
+    REQUIRE_EQ(left.size(), 1);
+    CHECK_EQ(left[0].value, 3);
+    REQUIRE_EQ(right.size(), 2);
+    CHECK_EQ(right[0].value, 1);
+    CHECK_EQ(right[1].value, 2);
+    CHECK_EQ(left.data(), rightData);
+    CHECK_EQ(right.data(), leftData);
+
+    core::array<Tracked> narrow(1);
+    narrow[0].value = 8;
+    CHECK_EQ(Tracked::alive, 4);
+    right = narrow;
+    CHECK_EQ(Tracked::alive, 3);
+    REQUIRE_EQ(right.size(), 1);
+    CHECK_EQ(right[0].value, 8);
+    CHECK_EQ(narrow[0].value, 8);
+    CHECK_NE(right.data(), narrow.data());
+  }
+  CHECK_EQ(Tracked::alive, 0);
+}
+
+TEST_CASE("Core shared pointer copy assignment releases the previous object") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  auto first = core::make_shared<Tracked>(1);
+  auto second = core::make_shared<Tracked>(2);
+  auto alias = first;
+  CHECK_EQ(Tracked::alive, 2);
+  first = second;
+  CHECK_EQ(Tracked::alive, 2);
+  CHECK_EQ(first.get(), second.get());
+  CHECK_EQ(first->value, 2);
+  CHECK_EQ(alias->value, 1);
+  CHECK_NE(alias.get(), first.get());
+  alias.reset();
+  CHECK_EQ(Tracked::alive, 1);
+  second = core::shared_ptr<Tracked>{};
+  CHECK_EQ(first->value, 2);
+  CHECK_EQ(Tracked::alive, 1);
+  first.reset();
+  CHECK_EQ(Tracked::alive, 0);
+}
