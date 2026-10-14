@@ -4,6 +4,7 @@
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
 #include <concepts>
+#include <limits>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -420,4 +421,41 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("A non-finite update suppresses the next aggregate delivery",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  constexpr auto Sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32;
+    else
+      return push::f_64::transformers::SumF64;
+  }();
+  u32                     calls = 0;
+  T                       last = 0;
+  core::function<void(T)> receive = [&](const T value) {
+    last = value;
+    ++calls;
+  };
+  auto sum = Sum(1, 10);
+  auto inputs = sum({.downstream = std::array{&receive}}).channels(2);
+  (*inputs[0])(T{3});
+  (*inputs[1])(T{4});
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(last, T{7});
+  (*inputs[1])(std::numeric_limits<T>::quiet_NaN());
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(last, T{7});
+  (*inputs[1])(T{5});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{8});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
 }

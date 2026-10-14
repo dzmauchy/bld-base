@@ -406,6 +406,24 @@ TEST_SUITE("GpioInF32") {
     CHECK_EQ(MockRuntime::lastF32(0, 1), 0.f);
   }
 
+  TEST_CASE_FIXTURE(BlocksFixture, "DeliversEdgesOnTheLargestPortAndPin") {
+    auto scope = ScopeF32(0);
+    auto sinks = scope().channels(1);
+    auto gpio = GpioInF32(1, 65535, core::array<u8>(1, u8{255}));
+    gpio({.pins = core::array<VectorizedInput<core::function<void(f32)>>>{{sinks}}});
+
+    CHECK_EQ(MockRuntime::registeredGpioPort(1), 65535);
+    REQUIRE_EQ(MockRuntime::registeredGpioPinCount(1), 1);
+    CHECK_EQ(MockRuntime::registeredGpioPin(1, 0), 255);
+
+    MockRuntime::emitGpio(65535, 255, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1.f);
+    MockRuntime::emitGpio(65535, 255, false);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+    MockRuntime::emitGpio(65535, 254, true);
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 0.f);
+  }
+
   TEST_CASE_FIXTURE(BlocksFixture, "OnCloseStopsListening") {
     auto scope = ScopeF32(0);
     auto sinks = scope().channels(1);

@@ -35,6 +35,18 @@ struct alignas(128) Aligned {
   int value;
 };
 
+struct ThrowOnCopy {
+  inline static int copiesLeft = 100;
+  int               value;
+  explicit ThrowOnCopy(int value) : value(value) {}
+  ThrowOnCopy(const ThrowOnCopy &other) : value(other.value) {
+    if (copiesLeft <= 0)
+      throw 7;
+    --copiesLeft;
+  }
+  int operator()(int input) const { return input + value; }
+};
+
 static_assert(std::is_constructible_v<core::function<int(int)>,
                                       decltype(twice) &>);
 static_assert(std::is_constructible_v<core::function<void(int)>,
@@ -194,6 +206,70 @@ TEST_CASE("Core array supports move-only, aligned and callable elements") {
   CHECK_EQ(callbacks[0](2), 3);
   CHECK_EQ(copied[0](3), 4);
   CHECK_EQ(copied.back()(3), 6);
+}
+
+TEST_CASE("Core function copy assignment keeps the target when copying throws") {
+  ThrowOnCopy::copiesLeft = 100;
+  core::function<int(int)> source = ThrowOnCopy{3};
+  core::function<int(int)> target = ThrowOnCopy{4};
+  ThrowOnCopy::copiesLeft = 0;
+  CHECK_THROWS_AS(target = source, int);
+  ThrowOnCopy incoming{9};
+  CHECK_THROWS_AS(target = incoming, int);
+  CHECK_EQ(target(1), 5);
+  CHECK_EQ(source(1), 4);
+  ThrowOnCopy::copiesLeft = 100;
+  target = source;
+  CHECK_EQ(target(1), 4);
+  target.swap(target);
+  CHECK_EQ(target(1), 4);
+  core::function<int(int)> empty;
+  target.swap(empty);
+  CHECK_FALSE(target);
+  CHECK_EQ(empty(1), 4);
+  empty.swap(target);
+  CHECK_FALSE(empty);
+  CHECK_EQ(target(1), 4);
+}
+
+TEST_CASE("Core array swap moves storage through an empty array") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  core::array<Tracked> values(2);
+  values[0].value = 4;
+  values[1].value = 6;
+  core::array<Tracked> empty;
+  values.swap(empty);
+  CHECK(values.empty());
+  REQUIRE_EQ(empty.size(), 2);
+  CHECK_EQ(empty[0].value, 4);
+  CHECK_EQ(empty[1].value, 6);
+  CHECK_EQ(Tracked::alive, 2);
+  empty.swap(values);
+  CHECK(empty.empty());
+  CHECK_EQ(values.back().value, 6);
+  values = core::array<Tracked>{};
+  CHECK_EQ(Tracked::alive, 0);
+}
+
+TEST_CASE("Core span borrows arrays and allows an empty prefix") {
+  int             raw[]{1, 2, 3};
+  core::span<int> view(raw);
+  REQUIRE_EQ(view.size(), 3);
+  view[1] = 8;
+  CHECK_EQ(raw[1], 8);
+  auto prefix = view.first(0);
+  CHECK(prefix.empty());
+  CHECK_EQ(prefix.data(), raw);
+  CHECK_EQ(view.first(view.size()).size(), view.size());
+  core::array<int> values{{4, 5}};
+  core::span<int>  borrowed(values);
+  borrowed[0] = 9;
+  CHECK_EQ(values[0], 9);
+  core::array<int> none;
+  core::span<int>  empty(none);
+  CHECK(empty.empty());
+  CHECK_EQ(empty.first(0).size(), 0);
+  CHECK_EQ(empty.begin(), empty.end());
 }
 
 TEST_CASE("Core array cleans up partial construction and failed copies") {
