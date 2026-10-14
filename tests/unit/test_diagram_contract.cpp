@@ -35,6 +35,11 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void plainConfiguration(u32,
+                        f64,
+                        f32,
+                        core::array<i32>,
+                        core::array<Bool>) {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -46,6 +51,40 @@ TEST_CASE("Factory configuration uses parameter positions and preserves array el
   CHECK_EQ(pins[1], 3);
   CHECK_EQ(pins[2], 7);
   CHECK(core::config_arg<2>(configurationFactory).empty());
+}
+
+TEST_CASE("Configuration uses the parameter type and a one-element list is not a count") {
+  CHECK_EQ(core::config_arg<0>(plainConfiguration, 16777217.0), 16777217.0);
+  CHECK_EQ(core::config_arg<1>(plainConfiguration, 16777217.0), 16777216.f);
+
+  const auto zero = core::config_arg<2>(plainConfiguration, 0);
+  REQUIRE_EQ(zero.size(), 1);
+  CHECK_EQ(zero[0], 0);
+  const auto five = core::config_arg<2>(plainConfiguration, 5);
+  REQUIRE_EQ(five.size(), 1);
+  CHECK_EQ(five[0], 5);
+
+  const auto disabled = core::config_arg<3>(plainConfiguration, false);
+  REQUIRE_EQ(disabled.size(), 1);
+  CHECK_FALSE(disabled[0]);
+  const auto flags = core::config_arg<3>(plainConfiguration, 0, 2);
+  REQUIRE_EQ(flags.size(), 2);
+  CHECK_FALSE(flags[0]);
+  CHECK(flags[1]);
+}
+
+TEST_CASE("Flat vectorized connections keep call order across channel indexes") {
+  i32  first = 1, second = 2, third = 3;
+  core::array<i32 *> port;
+  auto               connections = core::input_connections<true, 3, 2>(port);
+  connections.connect(1, &first);
+  connections.connect(0, &second);
+  connections.connect(1, &third);
+  auto list = connections.view();
+  REQUIRE_EQ(list.size(), 3);
+  CHECK_EQ(list[0], &first);
+  CHECK_EQ(list[1], &second);
+  CHECK_EQ(list[2], &third);
 }
 
 TEST_CASE_TEMPLATE("Uniform diagram calls wire fanout and copy temporary connection lists",
