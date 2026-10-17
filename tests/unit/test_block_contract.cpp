@@ -1,9 +1,12 @@
 #include <array>
-#include <doctest/doctest.h>
+#include <cmath>
+#include <limits>
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
 #include <concepts>
+#include <core/diagram.hpp>
+#include <doctest/doctest.h>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -126,6 +129,49 @@ template <typename O> core::function<O()> DualScope(u32 blockId) {
   return [first, second] {
     return O{.channels = first().channels, .single = second().channels(1)[0]};
   };
+}
+
+template <typename T> auto constantFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::ConstF32;
+  else
+    return push::f_64::sources::ConstF64;
+}
+template <typename T> auto cosineFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::CosF32;
+  else
+    return push::f_64::transformers::CosF64;
+}
+template <typename T> auto sineFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::SinF32;
+  else
+    return push::f_64::transformers::SinF64;
+}
+template <typename T> auto productFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::ProductF32;
+  else
+    return push::f_64::transformers::ProductF64;
+}
+template <typename T> auto sumFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::SumF32;
+  else
+    return push::f_64::transformers::SumF64;
+}
+template <typename T> auto pulseFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::PulseGenF32;
+  else
+    return push::f_64::sources::PulseGenF64;
+}
+template <typename T> auto randomFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::RandGenF32;
+  else
+    return push::f_64::sources::RandGenF64;
 }
 
 } // namespace
@@ -419,5 +465,175 @@ TEST_CASE_TEMPLATE(
   MockRuntime::start();
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Signed zero survives configuration, unary math, products, and sums",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  const T positiveZero = T{0};
+  const T negativeZero = -T{0};
+  REQUIRE_FALSE(std::signbit(positiveZero));
+  REQUIRE(std::signbit(negativeZero));
+
+  const T configured = core::config_arg<0>(constantFactory<T>(), negativeZero);
+  CHECK(configured == T{0});
+  CHECK(std::signbit(configured));
+
+  T   constantValue = T{1};
+  u32 constantCalls = 0;
+  core::function<void(T)> receiveConstant = [&](const T value) {
+    constantValue = value;
+    ++constantCalls;
+  };
+  T sineValue = T{1};
+  T cosineValue = T{1};
+  core::function<void(T)> receiveSine = [&](const T value) { sineValue = value; };
+  core::function<void(T)> receiveCosine = [&](const T value) { cosineValue = value; };
+  T productValue = T{1};
+  T sumValue = T{1};
+  core::function<void(T)> receiveProduct = [&](const T value) { productValue = value; };
+  core::function<void(T)> receiveSum = [&](const T value) { sumValue = value; };
+
+  auto constant = constantFactory<T>()(0, configured);
+  auto sine = sineFactory<T>()(1);
+  auto cosine = cosineFactory<T>()(2);
+  auto product = productFactory<T>()(3, 10);
+  auto sum = sumFactory<T>()(4, 10);
+  constant({.downstream = std::array{&receiveConstant}});
+  auto sineInput = sine({.downstream = std::array{&receiveSine}}).consumer;
+  auto cosineInput = cosine({.downstream = std::array{&receiveCosine}}).consumer;
+  auto factors = product({.downstream = std::array{&receiveProduct}}).channels(2);
+  auto terms = sum({.downstream = std::array{&receiveSum}}).channels(2);
+
+  (*sineInput)(negativeZero);
+  (*cosineInput)(negativeZero);
+  CHECK(sineValue == T{0});
+  CHECK(std::signbit(sineValue));
+  CHECK_EQ(cosineValue, T{1});
+  CHECK_FALSE(std::signbit(cosineValue));
+  (*sineInput)(positiveZero);
+  (*cosineInput)(positiveZero);
+  CHECK(sineValue == T{0});
+  CHECK_FALSE(std::signbit(sineValue));
+  CHECK_EQ(cosineValue, T{1});
+  CHECK_FALSE(std::signbit(cosineValue));
+
+  (*factors[0])(T{-2});
+  (*factors[1])(positiveZero);
+  (*terms[0])(negativeZero);
+  (*terms[1])(positiveZero);
+  MockRuntime::start();
+  CHECK_EQ(constantCalls, 1);
+  CHECK(constantValue == T{0});
+  CHECK(std::signbit(constantValue));
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 2);
+  MockRuntime::tick();
+  CHECK(productValue == T{0});
+  CHECK(std::signbit(productValue));
+  CHECK(sumValue == T{0});
+  CHECK_FALSE(std::signbit(sumValue));
+
+  (*factors[1])(negativeZero);
+  (*terms[1])(negativeZero);
+  MockRuntime::tick();
+  CHECK(productValue == T{0});
+  CHECK_FALSE(std::signbit(productValue));
+  CHECK(sumValue == T{0});
+  CHECK(std::signbit(sumValue));
+  MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Pulse non-finite duty and phase publish a finite level on every tick",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  const T amplitude = T{4};
+  const T positiveInfinity = std::numeric_limits<T>::infinity();
+  const T nan = std::numeric_limits<T>::quiet_NaN();
+  T       highValue = nan;
+  T       lowValue = nan;
+  T       phaseValue = nan;
+  T       frequencyValue = nan;
+  u32     highCalls = 0;
+  u32     lowCalls = 0;
+  u32     phaseCalls = 0;
+  u32     frequencyCalls = 0;
+  core::function<void(T)> receiveHigh = [&](const T value) {
+    highValue = value;
+    ++highCalls;
+  };
+  core::function<void(T)> receiveLow = [&](const T value) {
+    lowValue = value;
+    ++lowCalls;
+  };
+  core::function<void(T)> receivePhase = [&](const T value) {
+    phaseValue = value;
+    ++phaseCalls;
+  };
+  core::function<void(T)> receiveFrequency = [&](const T value) {
+    frequencyValue = value;
+    ++frequencyCalls;
+  };
+
+  auto high = pulseFactory<T>()(0, positiveInfinity, amplitude, T{1}, T{0});
+  auto low = pulseFactory<T>()(1, -positiveInfinity, amplitude, T{1}, T{0});
+  auto phase = pulseFactory<T>()(2, T{0.5}, amplitude, T{1}, nan);
+  auto frequency = pulseFactory<T>()(3, T{0.5}, amplitude, nan, T{0});
+  high({.downstream = std::array{&receiveHigh}});
+  low({.downstream = std::array{&receiveLow}});
+  phase({.downstream = std::array{&receivePhase}});
+  frequency({.downstream = std::array{&receiveFrequency}});
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 4);
+  for (const u64 time : {u64{0}, u64{500}}) {
+    MockRuntime::setNow(time);
+    MockRuntime::tick();
+    CHECK_EQ(highValue, amplitude);
+    CHECK_EQ(lowValue, T{0});
+    CHECK_FALSE(std::signbit(lowValue));
+    CHECK_EQ(phaseValue, T{0});
+    CHECK_FALSE(std::signbit(phaseValue));
+    CHECK_EQ(frequencyValue, T{0});
+    CHECK_FALSE(std::signbit(frequencyValue));
+  }
+  CHECK_EQ(highCalls, 2);
+  CHECK_EQ(lowCalls, 2);
+  CHECK_EQ(phaseCalls, 2);
+  CHECK_EQ(frequencyCalls, 2);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+}
+
+TEST_CASE_TEMPLATE("Random repeats an unchanged sample on the next tick",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  u32 calls = 0;
+  T   last = T{0};
+  core::function<void(T)> receive = [&](const T value) {
+    last = value;
+    ++calls;
+  };
+  auto random = randomFactory<T>()(0, 17, T{2});
+  random({.downstream = std::array{&receive}});
+  MockRuntime::setRandom(0.25f);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 17);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(last, T{0.5});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{0.5});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
   MockRuntime::close();
 }

@@ -7,6 +7,7 @@
 
 namespace {
 int twice(int value) { return value * 2; }
+int triple(int value) noexcept { return value * 3; }
 
 struct Tracked {
   inline static int alive = 0;
@@ -220,4 +221,35 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
     ThrowingCopy::copiesLeft = 100;
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
+}
+
+TEST_CASE("Core array checked accessors address both ends and return live references") {
+  core::array<int> values{{4, 5, 6}};
+  const core::array<int> &view = values;
+  CHECK_EQ(values.at(0), 4);
+  CHECK_EQ(view.at(2), 6);
+  int &last = values.at(2);
+  last = 9;
+  CHECK_EQ(values[2], 9);
+  CHECK_EQ(view.at(2), 9);
+  const int &first = view.at(0);
+  CHECK_EQ(first, 4);
+
+  core::array<int> single(1, 3);
+  const core::array<int> &singleView = single;
+  int &only = single.at(0);
+  only = 5;
+  CHECK_EQ(singleView.at(0), 5);
+  CHECK_EQ(singleView.front(), 5);
+  CHECK_EQ(singleView.back(), 5);
+}
+
+TEST_CASE("Core function accepts a noexcept function pointer and clears a null one") {
+  core::function<int(int)> callable = triple;
+  CHECK_EQ(callable(4), 12);
+  int (*nullFunction)(int) noexcept = nullptr;
+  callable = nullFunction;
+  CHECK_FALSE(callable);
+  callable = triple;
+  CHECK_EQ(callable(1), 3);
 }
