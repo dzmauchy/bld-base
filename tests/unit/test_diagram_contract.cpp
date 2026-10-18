@@ -1,3 +1,6 @@
+#include <array>
+#include <cmath>
+
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
 #include <core/diagram.hpp>
@@ -35,6 +38,9 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void narrowFactory(u32,
+                   i8,
+                   i16) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -46,6 +52,64 @@ TEST_CASE("Factory configuration uses parameter positions and preserves array el
   CHECK_EQ(pins[1], 3);
   CHECK_EQ(pins[2], 7);
   CHECK(core::config_arg<2>(configurationFactory).empty());
+}
+
+TEST_CASE("Configuration truncates at narrow integer limits and preserves parameter precision") {
+  CHECK_EQ(core::config_arg<0>(narrowFactory, -128.9), i8{-128});
+  CHECK_EQ(core::config_arg<0>(narrowFactory, 127.2), i8{127});
+  CHECK_EQ(core::config_arg<1>(narrowFactory, -32768.7), i16{-32768});
+  CHECK_EQ(core::config_arg<1>(narrowFactory, 32767.9), i16{32767});
+
+  const auto positive = core::config_arg<0>(push::f_32::sources::ConstF32, 1e39);
+  const auto negative = core::config_arg<0>(push::f_32::sources::ConstF32, -1e39);
+  const auto finite = core::config_arg<0>(push::f_32::sources::ConstF32, 1e20);
+  const auto wide = core::config_arg<0>(push::f_64::sources::ConstF64, 1e39);
+  CHECK(std::isinf(positive));
+  CHECK_GT(positive, 0.f);
+  CHECK(std::isinf(negative));
+  CHECK_LT(negative, 0.f);
+  CHECK(std::isfinite(finite));
+  CHECK_EQ(wide, 1e39);
+
+  MockRuntime::reset();
+  f32                       received = 0.f;
+  core::function<void(f32)> sink = [&](const f32 value) { received = value; };
+  auto                      constant = push::f_32::sources::ConstF32(0, positive);
+  constant({.downstream = std::array{&sink}});
+  MockRuntime::start();
+  CHECK(std::isinf(received));
+  CHECK_GT(received, 0.f);
+  MockRuntime::close();
+}
+
+TEST_CASE("Grouped connections keep channel indexes when a lower channel is connected later") {
+  int                                 a = 0;
+  int                                 b = 0;
+  int                                 c = 0;
+  core::array<core::span<int *const>> port;
+  auto connections = core::input_connections<true, 3, 2>(port);
+  connections.connect(1, &b);
+  connections.connect(0, &a);
+  connections.connect(1, &c);
+  const auto groups = connections.view();
+  REQUIRE_EQ(groups.size(), 2);
+  REQUIRE_EQ(groups[0].size(), 1);
+  CHECK_EQ(groups[0][0], &a);
+  REQUIRE_EQ(groups[1].size(), 2);
+  CHECK_EQ(groups[1][0], &b);
+  CHECK_EQ(groups[1][1], &c);
+}
+
+TEST_CASE("Scalar output channels keep an independent copy of an array port") {
+  core::array<i32> scalar{{7, 9}};
+  auto             channels = core::output_channels<false, 1>(scalar);
+  scalar[0] = 1;
+  scalar[1] = 2;
+  auto stored = channels.at(0);
+  CHECK_EQ(stored[0], 7);
+  CHECK_EQ(stored[1], 9);
+  stored[0] = 4;
+  CHECK_EQ(channels.at(0)[0], 7);
 }
 
 TEST_CASE_TEMPLATE("Uniform diagram calls wire fanout and copy temporary connection lists",

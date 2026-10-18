@@ -1,5 +1,8 @@
 #include <array>
+#include <cmath>
 #include <doctest/doctest.h>
+#include <limits>
+#include <numbers>
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
@@ -108,6 +111,41 @@ template <typename T> struct DualScopeOutput {
    */
   core::function<void(T)> *single{nullptr};
 };
+
+template <typename T> auto productFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::ProductF32;
+  else
+    return push::f_64::transformers::ProductF64;
+}
+
+template <typename T> auto sumFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::transformers::SumF32;
+  else
+    return push::f_64::transformers::SumF64;
+}
+
+template <typename T> auto cosineGeneratorFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::CosGenF32;
+  else
+    return push::f_64::sources::CosGenF64;
+}
+
+template <typename T> auto pulseFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::PulseGenF32;
+  else
+    return push::f_64::sources::PulseGenF64;
+}
+
+template <typename T> auto gpioFactory() {
+  if constexpr (std::is_same_v<T, f32>)
+    return push::f_32::sources::GpioInF32;
+  else
+    return push::f_64::sources::GpioInF64;
+}
 
 template <typename O> core::function<O()> DualScope(u32 blockId) {
   using T = O::Value;
@@ -420,4 +458,228 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Aggregate delivery uses the fold from before a sink updates an input",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  core::span<core::function<void(T)> *const> factors;
+  T                                          firstSeen = T{0};
+  T                                          secondSeen = T{0};
+  u32                                        firstCalls = 0;
+  u32                                        secondCalls = 0;
+  core::function<void(T)>                    firstSink = [&](const T value) {
+    firstSeen = value;
+    ++firstCalls;
+    (*factors[0])(T{7});
+  };
+  core::function<void(T)> secondSink = [&](const T value) {
+    secondSeen = value;
+    ++secondCalls;
+  };
+  auto product = productFactory<T>()(0, 10);
+  auto output = product({.downstream = std::array<core::function<void(T)> *, 3>{
+                             &firstSink, nullptr, &secondSink}});
+  factors = output.channels(2);
+  (*factors[0])(T{2});
+  (*factors[1])(T{5});
+
+  MockRuntime::start();
+  CHECK_EQ(firstCalls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::tick();
+  CHECK_EQ(firstSeen, T{10});
+  CHECK_EQ(secondSeen, T{10});
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(secondCalls, 1);
+
+  MockRuntime::tick();
+  CHECK_EQ(firstSeen, T{35});
+  CHECK_EQ(secondSeen, T{35});
+  CHECK_EQ(firstCalls, 2);
+  CHECK_EQ(secondCalls, 2);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 10);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::close();
+  MockRuntime::tick();
+  CHECK_EQ(firstCalls, 2);
+}
+
+TEST_CASE_TEMPLATE("A sum hides an overflowing total until a later finite fold",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       received = T{1};
+  u32                     calls = 0;
+  core::function<void(T)> sink = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  auto       sum = sumFactory<T>()(0, 15);
+  auto       terms = sum({.downstream = std::array{&sink}}).channels(2);
+  const auto huge = std::numeric_limits<T>::max();
+  (*terms[0])(huge);
+  (*terms[1])(huge);
+
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 0);
+  (*terms[1])(T{0});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(received, huge);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 15);
+  MockRuntime::close();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+}
+
+TEST_CASE_TEMPLATE("An aggregate with no sinks keeps latched factors until it is rewired",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       received = T{0};
+  u32                     calls = 0;
+  core::function<void(T)> sink = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  auto                    product = productFactory<T>()(0, 12);
+  core::array<core::function<void(T)> *> empty;
+  auto                                   output = product({.downstream = empty});
+  auto                                   factors = output.channels(2);
+  (*factors[0])(T{3});
+  (*factors[1])(T{5});
+
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  product({.downstream = std::array{&sink}});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(received, T{15});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 12);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+}
+
+TEST_CASE_TEMPLATE("Negative cosine amplitude tracks the wave, including a held phase",
+                   T,
+                   f32,
+                   f64) {
+  constexpr auto eps = std::is_same_v<T, f32> ? 1e-4 : 1e-9;
+  MockRuntime::reset();
+  T                       moving = T{0};
+  T                       held = T{0};
+  u32                     movingCalls = 0;
+  u32                     heldCalls = 0;
+  core::function<void(T)> receiveMoving = [&](const T value) {
+    moving = value;
+    ++movingCalls;
+  };
+  core::function<void(T)> receiveHeld = [&](const T value) {
+    held = value;
+    ++heldCalls;
+  };
+  auto cosine = cosineGeneratorFactory<T>()(0, 10, T{1}, T{-3}, T{0});
+  auto steady = cosineGeneratorFactory<T>()(1, 10, T{0}, T{-3}, std::numbers::pi_v<T>);
+  cosine({.downstream = std::array{&receiveMoving}});
+  steady({.downstream = std::array{&receiveHeld}});
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(movingCalls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 2);
+  MockRuntime::tick();
+  CHECK_EQ(moving, T{-3});
+  CHECK(held == doctest::Approx(T{3}).epsilon(eps));
+
+  MockRuntime::setNow(500);
+  MockRuntime::tick();
+  CHECK(moving == doctest::Approx(T{3}).epsilon(eps));
+  CHECK(held == doctest::Approx(T{3}).epsilon(eps));
+
+  MockRuntime::setNow(1000);
+  MockRuntime::tick();
+  CHECK(moving == doctest::Approx(T{-3}).epsilon(eps));
+  CHECK_EQ(movingCalls, 3);
+  CHECK_EQ(heldCalls, 3);
+  MockRuntime::close();
+  MockRuntime::setNow(1500);
+  MockRuntime::tick();
+  CHECK_EQ(movingCalls, 3);
+  CHECK_EQ(heldCalls, 3);
+}
+
+TEST_CASE_TEMPLATE("A zero amplitude pulse publishes exact zero on both halves of the period",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       received = T{1};
+  u32                     calls = 0;
+  core::function<void(T)> sink = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  auto pulse = pulseFactory<T>()(0, T{0.5}, T{0}, T{1}, T{0});
+  pulse({.downstream = std::array{&sink}});
+
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+  for (const u64 time : {u64{0}, u64{250}, u64{500}, u64{750}}) {
+    MockRuntime::setNow(time);
+    MockRuntime::tick();
+    CHECK_EQ(received, T{0});
+    CHECK_FALSE(std::signbit(received));
+  }
+  CHECK_EQ(calls, 4);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::close();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 4);
+}
+
+TEST_CASE_TEMPLATE("GPIO listens for every configured pin when fewer groups are wired",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  u32                     calls = 0;
+  core::function<void(T)> sink = [&](const T) { ++calls; };
+  auto                    gpio = gpioFactory<T>()(9, 2, core::array<u8>{{4, 5, 6}});
+  CHECK_EQ(MockRuntime::registeredGpioPinCount(9), 3);
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{std::array{&sink}}}});
+  CHECK_EQ(MockRuntime::activeGpioCount(), 3);
+  MockRuntime::emitGpio(2, 4, true);
+  CHECK_EQ(calls, 1);
+  MockRuntime::emitGpio(2, 5, true);
+  MockRuntime::emitGpio(2, 6, false);
+  CHECK_EQ(calls, 1);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+
+  MockRuntime::reset();
+  calls = 0;
+  core::array<u8> extra(9);
+  for (u8 index = 0; index < extra.size(); ++index)
+    extra[index] = index;
+  auto capped = gpioFactory<T>()(10, 1, extra);
+  CHECK_EQ(MockRuntime::registeredGpioPinCount(10), 8);
+  capped({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{std::array{&sink}}}});
+  CHECK_EQ(MockRuntime::activeGpioCount(), 8);
+  MockRuntime::emitGpio(1, 0, true);
+  CHECK_EQ(calls, 1);
+  MockRuntime::emitGpio(1, 8, true);
+  CHECK_EQ(calls, 1);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
 }
