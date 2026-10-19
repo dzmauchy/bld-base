@@ -35,6 +35,9 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void unsignedConfiguration(u32,
+                           u16,
+                           core::array<u8>) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -222,6 +225,27 @@ TEST_CASE("Empty signatures, zero connections, and zero output channels share th
   auto output = core::bind_block(scope, core::block_inputs(scope));
   auto empty = core::output_channels<true, 0>(output.channels);
   (void)empty;
+}
+
+TEST_CASE("Unsigned configuration wraps modulo the parameter width") {
+  CHECK_EQ(core::config_arg<0>(unsignedConfiguration, 65535), 65535);
+  CHECK_EQ(core::config_arg<0>(unsignedConfiguration, 65536), 0);
+  CHECK_EQ(core::config_arg<0>(unsignedConfiguration, -1), 65535);
+  const auto pins = core::config_arg<1>(unsignedConfiguration, 255, 256, -1);
+  REQUIRE_EQ(pins.size(), 3);
+  CHECK_EQ(pins[0], 255);
+  CHECK_EQ(pins[1], 0);
+  CHECK_EQ(pins[2], 255);
+}
+
+TEST_CASE("Zero-width grouped and flat connections stay empty") {
+  core::array<core::span<i32 *const>> grouped;
+  auto                                 groups = core::input_connections<true, 2, 0>(grouped);
+  CHECK(groups.view().empty());
+
+  core::array<i32 *> pointers;
+  auto               flat = core::input_connections<true, 2, 0>(pointers);
+  CHECK(flat.view().empty());
 }
 
 TEST_CASE("GPIO registration owns its configuration and applies the advertised channel limit") {
