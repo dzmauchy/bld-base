@@ -4,6 +4,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace {
 int twice(int value) { return value * 2; }
@@ -71,6 +72,21 @@ TEST_CASE("Core function owns captures and copies mutable state independently") 
   moved = nullptr;
   CHECK_FALSE(moved);
   CHECK_EQ(copy(1), 7);
+}
+
+TEST_CASE("Core function references into a capture stay with that callable") {
+  core::function<int &()> callable = [value = 3]() mutable -> int & { return value; };
+  callable() = 9;
+  CHECK_EQ(callable(), 9);
+  auto copy = callable;
+  copy() = 4;
+  CHECK_EQ(callable(), 9);
+  CHECK_EQ(copy(), 4);
+  auto moved = std::move(callable);
+  CHECK_FALSE(callable);
+  moved() = 11;
+  CHECK_EQ(moved(), 11);
+  CHECK_EQ(copy(), 4);
 }
 
 TEST_CASE("Core function supports free functions, references, void and move-only arguments") {
@@ -150,6 +166,13 @@ TEST_CASE("Core array has a size set at construction and copies raw buffers") {
   CHECK_NE(moved.data(), copy.data());
   core::array<int> range(copy.begin(), copy.end());
   CHECK_EQ(range.back(), 5);
+  std::vector<int> values{8, 9};
+  core::array<int> fromVector(values);
+  values[0] = 1;
+  CHECK_EQ(fromVector.front(), 8);
+  CHECK_EQ(fromVector.back(), 9);
+  std::vector<int> noValues;
+  CHECK(core::array<int>(noValues).empty());
 }
 
 TEST_CASE("Core array destroys every element when its fixed storage is released") {
