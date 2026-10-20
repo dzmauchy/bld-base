@@ -31,6 +31,19 @@ struct ThrowingCopy {
   ~ThrowingCopy() { --alive; }
 };
 
+struct ThrowOnDefault {
+  inline static int alive = 0;
+  inline static int remaining = 100;
+  ThrowOnDefault() {
+    if (remaining <= 0)
+      throw 7;
+    --remaining;
+    ++alive;
+  }
+  ThrowOnDefault(const ThrowOnDefault &) = delete;
+  ~ThrowOnDefault() { --alive; }
+};
+
 struct alignas(128) Aligned {
   int value;
 };
@@ -220,4 +233,18 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
     ThrowingCopy::copiesLeft = 100;
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
+}
+
+TEST_CASE("Core array releases elements when a later default constructor throws") {
+  REQUIRE_EQ(ThrowOnDefault::alive, 0);
+  ThrowOnDefault::remaining = 2;
+  CHECK_THROWS_AS(core::array<ThrowOnDefault>(4), int);
+  CHECK_EQ(ThrowOnDefault::alive, 0);
+  ThrowOnDefault::remaining = 3;
+  {
+    core::array<ThrowOnDefault> values(3);
+    CHECK_EQ(ThrowOnDefault::alive, 3);
+    CHECK_EQ(values.size(), 3);
+  }
+  CHECK_EQ(ThrowOnDefault::alive, 0);
 }
