@@ -35,7 +35,22 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void integerFactory(u32,
+                    u32,
+                    i64,
+                    core::array<i64>) noexcept {}
 } // namespace
+
+TEST_CASE("Configuration keeps integers that floating-point conversion would round") {
+  constexpr u32 aboveF32 = 16777217u;
+  constexpr i64 aboveF64 = 9007199254740993LL;
+  CHECK_EQ(core::config_arg<0>(integerFactory, aboveF32), aboveF32);
+  CHECK_EQ(core::config_arg<1>(integerFactory, aboveF64), aboveF64);
+  const auto values = core::config_arg<2>(integerFactory, aboveF64, -aboveF64);
+  REQUIRE_EQ(values.size(), 2);
+  CHECK_EQ(values[0], aboveF64);
+  CHECK_EQ(values[1], -aboveF64);
+}
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
   CHECK_EQ(core::config_arg<0>(configurationFactory, 3.75), 3);
@@ -222,6 +237,56 @@ TEST_CASE("Empty signatures, zero connections, and zero output channels share th
   auto output = core::bind_block(scope, core::block_inputs(scope));
   auto empty = core::output_channels<true, 0>(output.channels);
   (void)empty;
+}
+
+TEST_CASE("Connection views keep the count from the moment they were taken") {
+  i32                    first = 1;
+  i32                    second = 2;
+  core::span<i32 *const> flatPort;
+  auto                   flat = core::input_connections<true, 2, 2>(flatPort);
+  flat.connect(1, &first);
+  const auto earlyFlat = flat.view();
+  flat.connect(0, &second);
+  REQUIRE_EQ(earlyFlat.size(), 1);
+  CHECK_EQ(earlyFlat[0], &first);
+  const auto completeFlat = flat.view();
+  REQUIRE_EQ(completeFlat.size(), 2);
+  CHECK_EQ(completeFlat[0], &first);
+  CHECK_EQ(completeFlat[1], &second);
+
+  core::array<core::span<i32 *const>> groupedPort;
+  auto grouped = core::input_connections<true, 2, 2>(groupedPort);
+  grouped.connect(0, &first);
+  const auto earlyGroups = grouped.view();
+  grouped.connect(0, &second);
+  REQUIRE_EQ(earlyGroups.size(), 2);
+  REQUIRE_EQ(earlyGroups[0].size(), 1);
+  CHECK_EQ(earlyGroups[0][0], &first);
+  CHECK(earlyGroups[1].empty());
+  const auto completeGroups = grouped.view();
+  REQUIRE_EQ(completeGroups[0].size(), 2);
+  CHECK_EQ(completeGroups[0][0], &first);
+  CHECK_EQ(completeGroups[0][1], &second);
+  CHECK(completeGroups[1].empty());
+}
+
+TEST_CASE("Vectorized outputs accept a port wider than the exposed channel count") {
+  i32  first = 4, second = 5, third = 6;
+  auto direct = core::output_channels<true, 2>(core::array<i32 *>{{&first, &second, &third}});
+  CHECK_EQ(*direct.at(0), 4);
+  CHECK_EQ(*direct.at(1), 5);
+
+  i32 stored[3]{7, 8, 9};
+  core::function<core::span<i32 *const>(u8)> port =
+      [stored, pointers = core::array<i32 *>(3)](u8) mutable {
+        pointers[0] = &stored[0];
+        pointers[1] = &stored[1];
+        pointers[2] = &stored[2];
+        return core::span<i32 *const>{pointers.data(), pointers.size()};
+      };
+  auto channels = core::output_channels<true, 2>(port);
+  CHECK_EQ(*channels.at(0), 7);
+  CHECK_EQ(*channels.at(1), 8);
 }
 
 TEST_CASE("GPIO registration owns its configuration and applies the advertised channel limit") {
