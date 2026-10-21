@@ -1,6 +1,9 @@
 #include <core/lib.hpp>
+#include <core/math.hpp>
+#include <cmath>
 #include <cstdint>
 #include <doctest/doctest.h>
+#include <limits>
 #include <memory>
 #include <type_traits>
 #include <utility>
@@ -220,4 +223,119 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
     ThrowingCopy::copiesLeft = 100;
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
+}
+
+TEST_CASE("Core function forwards every argument and keeps copied captures independent") {
+  int (*add)(int, int) = [](int left, int right) { return left + right; };
+  core::function<int(int, int)> pointer = add;
+  CHECK_EQ(pointer(2, 3), 5);
+  core::function<int(int, int)> captured = [bias = 10](int left, int right) mutable {
+    return bias += left + right;
+  };
+  CHECK_EQ(captured(1, 2), 13);
+  const auto copy = captured;
+  CHECK_EQ(copy(1, 0), 14);
+  CHECK_EQ(captured(1, 0), 14);
+  int                          value = 1;
+  core::function<void(int &, int)> update = [](int &target, int delta) { target += delta; };
+  update(value, 5);
+  CHECK_EQ(value, 6);
+  int                                second = 2;
+  const int                          third = 8;
+  core::function<int(int, int &, const int &)> mixed = [](int first, int &current, const int &fixed) {
+    current += first;
+    return fixed;
+  };
+  CHECK_EQ(mixed(4, second, third), 8);
+  CHECK_EQ(second, 6);
+}
+
+TEST_CASE("Core shared_ptr aliases state, forwards constructors, and survives self-move") {
+  int alive = 0;
+  struct Owner {
+    int  value;
+    int *counter;
+    Owner(int value, int *counter) : value(value), counter(counter) { ++*counter; }
+    Owner(const Owner &) = delete;
+    Owner(Owner &&) = delete;
+    ~Owner() { --*counter; }
+  };
+  struct Holder {
+    std::unique_ptr<int> value;
+    explicit Holder(std::unique_ptr<int> value) : value(std::move(value)) {}
+  };
+
+  core::shared_ptr<Owner> empty;
+  CHECK_FALSE(static_cast<bool>(empty));
+  CHECK_EQ(empty.get(), nullptr);
+  core::shared_ptr<Owner> copiedEmpty(empty);
+  CHECK_FALSE(static_cast<bool>(copiedEmpty));
+
+  auto owned = core::make_shared<Owner>(4, &alive);
+  CHECK_EQ(alive, 1);
+  CHECK_EQ(owned->value, 4);
+  auto alias = owned;
+  alias->value = 9;
+  CHECK_EQ(owned->value, 9);
+  CHECK_EQ(alive, 1);
+  auto &same = owned;
+  owned = std::move(same);
+  REQUIRE(static_cast<bool>(owned));
+  CHECK_EQ(owned->value, 9);
+  CHECK_EQ(alive, 1);
+
+  auto held = core::make_shared<Holder>(std::make_unique<int>(6));
+  REQUIRE(held->value);
+  CHECK_EQ(*held->value, 6);
+
+  owned.reset();
+  alias.reset();
+  CHECK_EQ(alive, 0);
+}
+
+TEST_CASE("Core array self-swap and const observers keep every element") {
+  core::array<int> values{{1, 2, 3}};
+  values.swap(values);
+  REQUIRE_EQ(values.size(), 3);
+  CHECK_EQ(values[0], 1);
+  CHECK_EQ(values[2], 3);
+  const core::array<int> &readonly = values;
+  CHECK_EQ(&readonly.at(1), &values[1]);
+  CHECK_EQ(readonly.at(0), 1);
+  CHECK_EQ(readonly.at(readonly.size() - 1), 3);
+  CHECK_EQ(readonly.front(), 1);
+  CHECK_EQ(readonly.back(), 3);
+  CHECK_EQ(readonly.data()[1], 2);
+  CHECK_EQ(readonly.end() - readonly.begin(), 3);
+
+  core::span<int> mutableView(values);
+  mutableView[1] = 8;
+  CHECK_EQ(values[1], 8);
+  const core::array<int> &shared = values;
+  core::span<const int>   constView(shared);
+  CHECK_EQ(constView.size(), 3);
+  CHECK_EQ(constView[1], 8);
+  static_assert(std::is_constructible_v<core::span<const int>,
+                                        const core::array<int> &>);
+  static_assert(!std::is_constructible_v<core::span<int>,
+                                         const core::array<int> &>);
+}
+
+TEST_CASE("Remainder keeps the dividend sign and non-finite sentinels stay non-finite") {
+  CHECK_EQ(core::fmod(5.5, 2.0), 1.5);
+  CHECK_EQ(core::fmod(-5.5, 2.0), -1.5);
+  CHECK_EQ(core::fmod(4.0, 2.0), 0.0);
+  CHECK_EQ(core::fmod(5.5f, 2.f), 1.5f);
+  CHECK_EQ(core::fmod(-5.5f, 2.f), -1.5f);
+  CHECK(std::isnan(core::fmod(1.0, 0.0)));
+  CHECK(std::isnan(core::quiet_nan<float>()));
+  CHECK(std::isnan(core::quiet_nan<double>()));
+  CHECK_FALSE(core::isfinite(core::quiet_nan<float>()));
+  CHECK_FALSE(core::isfinite(core::quiet_nan<double>()));
+  CHECK_FALSE(core::isfinite(std::numeric_limits<float>::infinity()));
+  CHECK_FALSE(core::isfinite(-std::numeric_limits<double>::infinity()));
+  CHECK(core::isfinite(0.f));
+  CHECK(core::isfinite(std::numeric_limits<double>::max()));
+  CHECK(core::isfinite(std::numeric_limits<float>::denorm_min()));
+  CHECK(core::isfinite(std::numeric_limits<double>::denorm_min()));
 }
