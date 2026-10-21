@@ -235,6 +235,8 @@ TEST_CASE_TEMPLATE("Aggregation supports channel vectors at channel count bounda
       (*channel)(T{1});
     }
     MockRuntime::start();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+    CHECK_EQ(MockRuntime::intervalPeriodAt(0), 10);
     MockRuntime::tick();
     if constexpr (std::is_same_v<T, f32>) {
       CHECK_EQ(MockRuntime::hasF32(0, 0), count != 0);
@@ -248,6 +250,7 @@ TEST_CASE_TEMPLATE("Aggregation supports channel vectors at channel count bounda
       }
     }
     MockRuntime::close();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
   }
 }
 

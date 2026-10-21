@@ -35,6 +35,8 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void boolArrayFactory(u32,
+                      core::array<bool>) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -46,6 +48,11 @@ TEST_CASE("Factory configuration uses parameter positions and preserves array el
   CHECK_EQ(pins[1], 3);
   CHECK_EQ(pins[2], 7);
   CHECK(core::config_arg<2>(configurationFactory).empty());
+  const auto flags = core::config_arg<0>(boolArrayFactory, 0, 1, 2);
+  REQUIRE_EQ(flags.size(), 3);
+  CHECK_FALSE(flags[0]);
+  CHECK(flags[1]);
+  CHECK(flags[2]);
 }
 
 TEST_CASE_TEMPLATE("Uniform diagram calls wire fanout and copy temporary connection lists",

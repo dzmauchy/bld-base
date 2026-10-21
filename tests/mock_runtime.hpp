@@ -12,6 +12,7 @@ public:
   static void reset();
   static void start();
   static void close();
+  static void closeAt(u32 index);
   static void tick();
   static void setNow(u64 milliseconds);
   static void setRandom(f32 value);

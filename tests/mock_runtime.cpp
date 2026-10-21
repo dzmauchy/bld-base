@@ -34,6 +34,11 @@ void MockRuntime::close() {
   std::ranges::for_each(callbacks, invoke);
 }
 
+void MockRuntime::closeAt(u32 index) {
+  auto callbacks = instance().close_;
+  invoke(callbacks.at(index));
+}
+
 void MockRuntime::tick() {
   auto intervals = instance().intervals_;
   for (const auto &interval : intervals | std::views::filter(isActive)) {
