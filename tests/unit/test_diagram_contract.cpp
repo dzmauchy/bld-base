@@ -1,7 +1,9 @@
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
+#include <cmath>
 #include <core/diagram.hpp>
 #include <doctest/doctest.h>
+#include <limits>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -35,6 +37,13 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void floatingFactory(u32,
+                     f32,
+                     f64,
+                     core::array<f64>) noexcept {}
+void wideFactory(u32,
+                 u64,
+                 i64) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -236,4 +245,83 @@ TEST_CASE("GPIO registration owns its configuration and applies the advertised c
   CHECK_EQ(MockRuntime::registeredGpioPin(42, 0), 0);
   CHECK_EQ(MockRuntime::registeredGpioPin(42, 7), 7);
   (void)gpio;
+}
+
+TEST_CASE("Factory configuration preserves non-finite floats and extreme integers") {
+  CHECK(std::isnan(core::config_arg<0>(floatingFactory, std::numeric_limits<f32>::quiet_NaN())));
+  CHECK(std::isnan(core::config_arg<0>(floatingFactory, std::numeric_limits<f64>::quiet_NaN())));
+  CHECK_EQ(core::config_arg<0>(floatingFactory, std::numeric_limits<f32>::infinity()),
+           std::numeric_limits<f32>::infinity());
+  CHECK_EQ(core::config_arg<0>(floatingFactory, -std::numeric_limits<f64>::infinity()),
+           -std::numeric_limits<f32>::infinity());
+  CHECK(std::isnan(core::config_arg<1>(floatingFactory, std::numeric_limits<f32>::quiet_NaN())));
+  CHECK_EQ(core::config_arg<1>(floatingFactory, std::numeric_limits<f64>::infinity()),
+           std::numeric_limits<f64>::infinity());
+  const auto values = core::config_arg<2>(floatingFactory, std::numeric_limits<f64>::quiet_NaN(),
+                                          std::numeric_limits<f64>::infinity(),
+                                          -std::numeric_limits<f64>::infinity());
+  REQUIRE_EQ(values.size(), 3);
+  CHECK(std::isnan(values[0]));
+  CHECK_EQ(values[1], std::numeric_limits<f64>::infinity());
+  CHECK_EQ(values[2], -std::numeric_limits<f64>::infinity());
+
+  CHECK_EQ(core::config_arg<0>(wideFactory, std::numeric_limits<u64>::max()),
+           std::numeric_limits<u64>::max());
+  CHECK_EQ(core::config_arg<1>(wideFactory, std::numeric_limits<i64>::min()),
+           std::numeric_limits<i64>::min());
+}
+
+TEST_CASE_TEMPLATE("Grouped connections keep holes on both sides of a fanout",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  auto scope = scopeFactory<T>()(0, 60, 10);
+  auto output = core::bind_block(scope, core::block_inputs(scope));
+  auto channels = core::output_channels<true, 2>(output.channels);
+  auto gpio = gpioFactory<T>()(1, core::config_arg<0>(gpioFactory<T>(), 4),
+                               core::config_arg<1>(gpioFactory<T>(), 2, 5, 9));
+  CHECK_EQ(MockRuntime::registeredGpioPort(1), 4);
+  REQUIRE_EQ(MockRuntime::registeredGpioPinCount(1), 3);
+  CHECK_EQ(MockRuntime::registeredGpioPin(1, 0), 2);
+  CHECK_EQ(MockRuntime::registeredGpioPin(1, 2), 9);
+  auto input = core::block_inputs(gpio);
+  auto connections = core::input_connections<true, 2, 3>(input.pins);
+  connections.connect(1, channels.at(0));
+  connections.connect(1, channels.at(1));
+  const auto groups = connections.view();
+  REQUIRE_EQ(groups.size(), 3);
+  CHECK(groups[0].empty());
+  REQUIRE_EQ(groups[1].size(), 2);
+  CHECK(groups[2].empty());
+  input.pins = groups;
+  core::bind_block(gpio, core::detail::move(input));
+  CHECK_EQ(MockRuntime::activeGpioCount(), 3);
+  MockRuntime::emitGpio(4, 2, true);
+  MockRuntime::emitGpio(4, 9, true);
+  if constexpr (std::is_same_v<T, f32>) {
+    CHECK_FALSE(MockRuntime::hasF32(0, 0));
+    CHECK_FALSE(MockRuntime::hasF32(0, 1));
+  } else {
+    CHECK_FALSE(MockRuntime::hasF64(0, 0));
+    CHECK_FALSE(MockRuntime::hasF64(0, 1));
+  }
+  MockRuntime::emitGpio(4, 5, true);
+  if constexpr (std::is_same_v<T, f32>) {
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 1);
+  } else {
+    CHECK_EQ(MockRuntime::lastF64(0, 0), 1);
+    CHECK_EQ(MockRuntime::lastF64(0, 1), 1);
+  }
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(4, 5, false);
+  if constexpr (std::is_same_v<T, f32>) {
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 1);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 1);
+  } else {
+    CHECK_EQ(MockRuntime::lastF64(0, 0), 1);
+    CHECK_EQ(MockRuntime::lastF64(0, 1), 1);
+  }
 }

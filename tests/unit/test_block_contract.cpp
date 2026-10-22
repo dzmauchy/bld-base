@@ -3,7 +3,9 @@
 
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
+#include <cmath>
 #include <concepts>
+#include <limits>
 #include <type_traits>
 
 #include "../mock_runtime.hpp"
@@ -420,4 +422,91 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("Scope replaces one channel, including NaN, and leaves the other",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  auto scope = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sinks::ScopeF32(0);
+    else
+      return push::f_64::sinks::ScopeF64(0);
+  }();
+  const auto output = scope();
+  const auto channels = output.channels(2);
+  (*channels[0])(T{1});
+  (*channels[1])(T{2});
+  (*channels[0])(std::numeric_limits<T>::quiet_NaN());
+  if constexpr (std::is_same_v<T, f32>) {
+    CHECK(std::isnan(MockRuntime::lastF32(0, 0)));
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 2);
+  } else {
+    CHECK(std::isnan(MockRuntime::lastF64(0, 0)));
+    CHECK_EQ(MockRuntime::lastF64(0, 1), 2);
+  }
+  (*channels[0])(T{4});
+  if constexpr (std::is_same_v<T, f32>) {
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4);
+    CHECK_EQ(MockRuntime::lastF32(0, 1), 2);
+  } else {
+    CHECK_EQ(MockRuntime::lastF64(0, 0), 4);
+    CHECK_EQ(MockRuntime::lastF64(0, 1), 2);
+  }
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  if constexpr (std::is_same_v<T, f32>)
+    CHECK_EQ(MockRuntime::lastF32(0, 0), 4);
+  else
+    CHECK_EQ(MockRuntime::lastF64(0, 0), 4);
+}
+
+TEST_CASE_TEMPLATE("Unary transformers publish every successive sample to each sink",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  constexpr auto Cos = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::CosF32;
+    else
+      return push::f_64::transformers::CosF64;
+  }();
+  T   first = T{7};
+  T   second = T{7};
+  u32 firstCalls = 0;
+  u32 secondCalls = 0;
+  core::function<void(T)> firstSink = [&](const T value) {
+    first = value;
+    ++firstCalls;
+  };
+  core::function<void(T)> secondSink = [&](const T value) {
+    second = value;
+    ++secondCalls;
+  };
+  auto       cosine = Cos(1);
+  const auto consumer = cosine({.downstream = std::array{&firstSink, &secondSink}}).consumer;
+  REQUIRE(consumer != nullptr);
+  (*consumer)(T{0});
+  CHECK_EQ(first, T{1});
+  CHECK_EQ(second, T{1});
+  CHECK_EQ(firstCalls, 1);
+  CHECK_EQ(secondCalls, 1);
+  (*consumer)(T{0});
+  CHECK_EQ(firstCalls, 2);
+  CHECK_EQ(secondCalls, 2);
+  (*consumer)(T{1});
+  const auto expected = std::cos(1.0);
+  CHECK(first == doctest::Approx(expected).epsilon(1e-5));
+  CHECK(second == doctest::Approx(expected).epsilon(1e-5));
+  CHECK_EQ(firstCalls, 3);
+  CHECK_EQ(secondCalls, 3);
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(firstCalls, 3);
+  CHECK_EQ(secondCalls, 3);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
 }
