@@ -35,6 +35,39 @@ struct alignas(128) Aligned {
   int value;
 };
 
+struct CopyOnly {
+  int value;
+  explicit CopyOnly(int value) : value(value) {}
+};
+
+struct FillTracked {
+  inline static int alive = 0;
+  int               value;
+  explicit FillTracked(int value) : value(value) { ++alive; }
+  FillTracked(const FillTracked &other) : FillTracked(other.value) {}
+  FillTracked &operator=(const FillTracked &other) {
+    value = other.value;
+    return *this;
+  }
+  ~FillTracked() { --alive; }
+};
+
+struct ThrowAssign {
+  inline static int alive = 0;
+  inline static int assignments = 0;
+  int               value;
+  explicit ThrowAssign(int value) : value(value) { ++alive; }
+  ThrowAssign(const ThrowAssign &other) : ThrowAssign(other.value) {}
+  ThrowAssign &operator=(const ThrowAssign &other) {
+    if (assignments >= 1)
+      throw 7;
+    ++assignments;
+    value = other.value;
+    return *this;
+  }
+  ~ThrowAssign() { --alive; }
+};
+
 static_assert(std::is_constructible_v<core::function<int(int)>,
                                       decltype(twice) &>);
 static_assert(std::is_constructible_v<core::function<void(int)>,
@@ -220,4 +253,81 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
     ThrowingCopy::copiesLeft = 100;
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
+}
+
+TEST_CASE("Core function reset is idempotent and an empty function copies as empty") {
+  REQUIRE_EQ(Tracked::alive, 0);
+  {
+    core::function<int()> callable = [value = Tracked{3}] { return value.value; };
+    CHECK_EQ(Tracked::alive, 1);
+    const auto copy = callable;
+    callable.reset();
+    callable.reset();
+    CHECK_FALSE(callable);
+    CHECK_EQ(Tracked::alive, 1);
+    CHECK_EQ(copy(), 3);
+    core::function<int()> empty;
+    const auto            copiedEmpty = empty;
+    CHECK_FALSE(empty);
+    CHECK_FALSE(copiedEmpty);
+  }
+  CHECK_EQ(Tracked::alive, 0);
+}
+
+TEST_CASE("Core array copy-constructs elements that have no default constructor") {
+  static_assert(!std::is_default_constructible_v<CopyOnly>);
+  const CopyOnly        seed{6};
+  core::array<CopyOnly> repeated(3, seed);
+  REQUIRE_EQ(repeated.size(), 3);
+  CHECK_EQ(repeated.front().value, 6);
+  CHECK_EQ(repeated.back().value, 6);
+  CHECK_NE(&repeated.front(), &seed);
+  repeated[1].value = 8;
+  CHECK_EQ(repeated[0].value, 6);
+  auto copy = repeated;
+  copy[0].value = 1;
+  CHECK_EQ(repeated[0].value, 6);
+  CHECK_EQ(copy[1].value, 8);
+
+  const CopyOnly raw[]{CopyOnly{1}, CopyOnly{2}};
+  core::array    fromRaw(raw);
+  REQUIRE_EQ(fromRaw.size(), 2);
+  CHECK_EQ(fromRaw[0].value, 1);
+  CHECK_EQ(fromRaw[1].value, 2);
+  core::array<CopyOnly> range(raw, raw + 2);
+  CHECK_EQ(range.back().value, 2);
+  core::array<CopyOnly> none(raw, raw);
+  CHECK(none.empty());
+  CHECK_EQ(none.begin(), none.end());
+}
+
+TEST_CASE("Core array fill assigns in place and stops when assignment throws") {
+  REQUIRE_EQ(FillTracked::alive, 0);
+  {
+    core::array<FillTracked> values(3, FillTracked{1});
+    CHECK_EQ(FillTracked::alive, 3);
+    const auto *address = values.data();
+    values.fill(FillTracked{9});
+    CHECK_EQ(values.data(), address);
+    CHECK_EQ(FillTracked::alive, 3);
+    CHECK_EQ(values.front().value, 9);
+    CHECK_EQ(values.back().value, 9);
+  }
+  CHECK_EQ(FillTracked::alive, 0);
+
+  REQUIRE_EQ(ThrowAssign::alive, 0);
+  {
+    core::array<ThrowAssign> values(3, ThrowAssign{1});
+    CHECK_EQ(ThrowAssign::alive, 3);
+    const auto *address = values.data();
+    ThrowAssign::assignments = 0;
+    CHECK_THROWS_AS(values.fill(ThrowAssign{4}), int);
+    CHECK_EQ(values.data(), address);
+    CHECK_EQ(ThrowAssign::alive, 3);
+    CHECK_EQ(values.size(), 3);
+    CHECK_EQ(values[0].value, 4);
+    CHECK_EQ(values[1].value, 1);
+    CHECK_EQ(values[2].value, 1);
+  }
+  CHECK_EQ(ThrowAssign::alive, 0);
 }
