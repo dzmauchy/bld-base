@@ -1,8 +1,10 @@
+#include <array>
 #include <base/f32_blocks.hpp>
 #include <base/f64_blocks.hpp>
 #include <core/diagram.hpp>
 #include <doctest/doctest.h>
 #include <type_traits>
+#include <utility>
 
 #include "../mock_runtime.hpp"
 
@@ -35,6 +37,35 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+
+template <typename Port,
+          bool   Vectorized,
+          size_t Connections,
+          size_t Width>
+constexpr bool temporary_connection_can_view() {
+  return requires(Port &port) {
+    core::input_connections<Vectorized, Connections, Width>(port).view();
+  };
+}
+template <typename Port,
+          bool   Vectorized,
+          size_t Connections,
+          size_t Width>
+constexpr bool lvalue_connection_can_view() {
+  return requires(decltype(core::input_connections<Vectorized,
+                                                   Connections,
+                                                   Width>(std::declval<Port &>())) &connections) {
+    connections.view();
+  };
+}
+static_assert(!temporary_connection_can_view<i32, false, 1, 1>());
+static_assert(lvalue_connection_can_view<i32, false, 1, 1>());
+static_assert(!temporary_connection_can_view<core::span<i32 *const>, true, 1, 1>());
+static_assert(lvalue_connection_can_view<core::span<i32 *const>, true, 1, 1>());
+static_assert(!temporary_connection_can_view<core::array<core::span<i32 *const>>, true, 1, 1>());
+static_assert(lvalue_connection_can_view<core::array<core::span<i32 *const>>, true, 1, 1>());
+static_assert(!temporary_connection_can_view<core::array<i32 *>, true, 1, 1>());
+static_assert(lvalue_connection_can_view<core::array<i32 *>, true, 1, 1>());
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -222,6 +253,145 @@ TEST_CASE("Empty signatures, zero connections, and zero output channels share th
   auto output = core::bind_block(scope, core::block_inputs(scope));
   auto empty = core::output_channels<true, 0>(output.channels);
   (void)empty;
+}
+
+TEST_CASE("Connection views borrow their list and pointer ports keep an owned copy") {
+  i32 port = 0;
+  auto scalar = core::input_connections<false, 1, 1>(port);
+  scalar.connect(0, 4);
+  CHECK_EQ(scalar.view(), 4);
+
+  i32 first = 1, second = 2, replacement = 3;
+  core::array<i32 *> pointers;
+  core::span<i32 *> mutablePort;
+  auto borrowedConnections = core::input_connections<true, 2, 1>(mutablePort);
+  borrowedConnections.connect(0, &first);
+  auto borrowed = borrowedConnections.view();
+  borrowed[0] = &replacement;
+  auto borrowedAgain = borrowedConnections.view();
+  REQUIRE_EQ(borrowedAgain.size(), 1);
+  CHECK_EQ(borrowedAgain[0], &replacement);
+  borrowedConnections.connect(0, &second);
+  CHECK_EQ(borrowed.size(), 1);
+  CHECK_EQ(borrowedAgain[0], &replacement);
+
+  auto ownedConnections = core::input_connections<true, 2, 1>(pointers);
+  ownedConnections.connect(0, &first);
+  ownedConnections.connect(0, &second);
+  using BorrowedList = core::InputConnections<core::span<i32 *const>, true, 2, 1>;
+  auto &ownedBase = static_cast<BorrowedList &>(ownedConnections);
+  auto borrowedSlots = ownedBase.view();
+  auto owned = ownedConnections.view();
+  REQUIRE_EQ(borrowedSlots.size(), 2);
+  REQUIRE_EQ(owned.size(), 2);
+  CHECK(static_cast<const void *>(owned.data()) !=
+        static_cast<const void *>(borrowedSlots.data()));
+  const_cast<i32 **>(borrowedSlots.data())[0] = &replacement;
+  CHECK_EQ(borrowedSlots[0], &replacement);
+  CHECK_EQ(owned[0], &first);
+  CHECK_EQ(owned[1], &second);
+}
+
+TEST_CASE_TEMPLATE("GPIO does not replay a level sampled before its listener exists", T, f32, f64) {
+  MockRuntime::reset();
+  MockRuntime::emitGpio(7, 3, true);
+  auto gpio = gpioFactory<T>()(1, 7, core::array<u8>(1, u8{3}));
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  T                       value = T{-1};
+  u32                     calls = 0;
+  core::function<void(T)> sink = [&value, &calls](const T sample) {
+    value = sample;
+    ++calls;
+  };
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{
+            {std::array{&sink}}}});
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::start();
+  MockRuntime::tick();
+  CHECK_EQ(calls, 0);
+  MockRuntime::emitGpio(7, 3, true);
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(value, T{1});
+  MockRuntime::emitGpio(7, 3, true);
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(value, T{1});
+  MockRuntime::emitGpio(7, 3, false);
+  CHECK_EQ(calls, 3);
+  CHECK_EQ(value, T{0});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(7, 3, true);
+  CHECK_EQ(calls, 3);
+  CHECK_EQ(MockRuntime::registeredGpioCount(), 1);
+  CHECK_EQ(MockRuntime::registeredGpioPin(1, 0), 3);
+}
+
+TEST_CASE_TEMPLATE("GPIO registration keeps duplicate pins for every block", T, f32, f64) {
+  MockRuntime::reset();
+  auto primary = gpioFactory<T>()(3, 4, core::array<u8>{{3, 3, 1}});
+  auto other = gpioFactory<T>()(8, 2, core::array<u8>(1, u8{5}));
+  CHECK_EQ(MockRuntime::registeredGpioCount(), 2);
+  CHECK_EQ(MockRuntime::registeredGpioPort(3), 4);
+  REQUIRE_EQ(MockRuntime::registeredGpioPinCount(3), 3);
+  CHECK_EQ(MockRuntime::registeredGpioPin(3, 0), 3);
+  CHECK_EQ(MockRuntime::registeredGpioPin(3, 1), 3);
+  CHECK_EQ(MockRuntime::registeredGpioPin(3, 2), 1);
+  CHECK_EQ(MockRuntime::registeredGpioPort(8), 2);
+  REQUIRE_EQ(MockRuntime::registeredGpioPinCount(8), 1);
+  CHECK_EQ(MockRuntime::registeredGpioPin(8, 0), 5);
+
+  u32                     firstCalls = 0, secondCalls = 0, thirdCalls = 0, otherCalls = 0;
+  T                       first = T{-1}, third = T{-1}, otherValue = T{-1};
+  core::function<void(T)> firstSink = [&](const T sample) {
+    first = sample;
+    ++firstCalls;
+  };
+  core::function<void(T)> secondSink = [&](const T) { ++secondCalls; };
+  core::function<void(T)> thirdSink = [&](const T sample) {
+    third = sample;
+    ++thirdCalls;
+  };
+  core::function<void(T)> otherSink = [&](const T sample) {
+    otherValue = sample;
+    ++otherCalls;
+  };
+  primary({.pins = core::array<VectorizedInput<core::function<void(T)>>>{
+               {std::array{&firstSink}, std::array{&secondSink}, std::array{&thirdSink}}}});
+  other({.pins = core::array<VectorizedInput<core::function<void(T)>>>{
+             {std::array{&otherSink}}}});
+  CHECK_EQ(MockRuntime::activeGpioCount(), 4);
+  CHECK_EQ(MockRuntime::registeredGpioCount(), 2);
+  CHECK_EQ(MockRuntime::registeredGpioPin(3, 1), 3);
+  CHECK_EQ(MockRuntime::registeredGpioPin(8, 0), 5);
+
+  MockRuntime::emitGpio(4, 3, true);
+  CHECK_GT(firstCalls, 0);
+  CHECK_EQ(first, T{1});
+  CHECK_EQ(secondCalls, 0);
+  CHECK_EQ(thirdCalls, 0);
+  CHECK_EQ(otherCalls, 0);
+  const auto deliveries = firstCalls;
+  MockRuntime::emitGpio(4, 1, false);
+  CHECK_EQ(firstCalls, deliveries);
+  CHECK_EQ(secondCalls, 0);
+  CHECK_EQ(thirdCalls, 1);
+  CHECK_EQ(third, T{0});
+  CHECK_EQ(otherCalls, 0);
+  MockRuntime::emitGpio(2, 5, true);
+  CHECK_EQ(otherCalls, 1);
+  CHECK_EQ(otherValue, T{1});
+  CHECK_EQ(secondCalls, 0);
+  CHECK_EQ(thirdCalls, 1);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  CHECK_EQ(MockRuntime::registeredGpioCount(), 2);
+  CHECK_EQ(MockRuntime::registeredGpioPinCount(3), 3);
+  CHECK_EQ(MockRuntime::registeredGpioPin(3, 1), 3);
+  MockRuntime::emitGpio(4, 3, false);
+  CHECK_EQ(firstCalls, deliveries);
+  CHECK_EQ(secondCalls, 0);
 }
 
 TEST_CASE("GPIO registration owns its configuration and applies the advertised channel limit") {
