@@ -101,3 +101,76 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
   }
   MockRuntime::close();
 }
+
+TEST_CASE_TEMPLATE("GPIO fan-out keeps the level sampled before a sink changes the pin",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T   earlySamples[2]{};
+  T   laterSamples[2]{};
+  u32 earlyCalls = 0;
+  u32 laterCalls = 0;
+  auto gpio = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::GpioInF32(1, 4, core::array<u8>(1, u8{2}));
+    else
+      return push::f_64::sources::GpioInF64(1, 4, core::array<u8>(1, u8{2}));
+  }();
+  core::function<void(T)> early = [&](const T value) {
+    if (earlyCalls < 2)
+      earlySamples[earlyCalls] = value;
+    if (++earlyCalls == 1)
+      MockRuntime::emitGpio(4, 2, false);
+  };
+  core::function<void(T)> later = [&](const T value) {
+    if (laterCalls < 2)
+      laterSamples[laterCalls] = value;
+    ++laterCalls;
+  };
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{
+            {std::array{&early, &later}}}});
+
+  CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+  MockRuntime::emitGpio(4, 2, true);
+  REQUIRE_EQ(earlyCalls, 2);
+  REQUIRE_EQ(laterCalls, 2);
+  CHECK_EQ(earlySamples[0], T{1});
+  CHECK_EQ(earlySamples[1], T{0});
+  CHECK_EQ(laterSamples[0], T{0});
+  CHECK_EQ(laterSamples[1], T{1});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(4, 2, true);
+  CHECK_EQ(earlyCalls, 2);
+  CHECK_EQ(laterCalls, 2);
+}
+
+TEST_CASE("Random generators read the host sample for their precision") {
+  MockRuntime::reset();
+  MockRuntime::setRandom(0.25f);
+  MockRuntime::setRandomF64(0.5);
+  CHECK_EQ(random_f32(), 0.25f);
+  CHECK_EQ(random_f64(), 0.5);
+
+  f32                       narrow = 0;
+  f64                       wide = 0;
+  core::function<void(f32)> receiveNarrow = [&](const f32 value) { narrow = value; };
+  core::function<void(f64)> receiveWide = [&](const f64 value) { wide = value; };
+  auto                      f32Random = push::f_32::sources::RandGenF32(0, 10, 2.f);
+  auto                      f64Random = push::f_64::sources::RandGenF64(1, 10, 4.0);
+  f32Random({.downstream = std::array{&receiveNarrow}});
+  f64Random({.downstream = std::array{&receiveWide}});
+  MockRuntime::start();
+  CHECK_EQ(narrow, 0.f);
+  CHECK_EQ(wide, 0.0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 2);
+  MockRuntime::tick();
+  CHECK_EQ(narrow, 0.5f);
+  CHECK_EQ(wide, 2.0);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(narrow, 0.5f);
+  CHECK_EQ(wide, 2.0);
+}

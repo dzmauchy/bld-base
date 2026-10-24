@@ -35,6 +35,18 @@ struct alignas(128) Aligned {
   int value;
 };
 
+struct AliasedElement {
+  inline static int alive = 0;
+  int               value;
+  explicit AliasedElement(int value = 0) : value(value) { ++alive; }
+  AliasedElement(const AliasedElement &other) : AliasedElement(other.value) {}
+  AliasedElement &operator=(const AliasedElement &other) {
+    value = other.value;
+    return *this;
+  }
+  ~AliasedElement() { --alive; }
+};
+
 static_assert(std::is_constructible_v<core::function<int(int)>,
                                       decltype(twice) &>);
 static_assert(std::is_constructible_v<core::function<void(int)>,
@@ -220,4 +232,46 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
     ThrowingCopy::copiesLeft = 100;
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
+}
+
+TEST_CASE("Core function invokes a mutable target through a const callable") {
+  core::function<int(int)> callable = [sum = 1](int value) mutable { return sum += value; };
+  const core::function<int(int)> &readonly = callable;
+  CHECK(static_cast<bool>(readonly));
+  CHECK_EQ(readonly(2), 3);
+  CHECK_EQ(readonly(4), 7);
+  const auto copy = readonly;
+  CHECK_EQ(copy(1), 8);
+  CHECK_EQ(readonly(1), 8);
+  callable.reset();
+  CHECK_FALSE(readonly);
+  CHECK_EQ(copy(1), 9);
+}
+
+TEST_CASE("Core array fill from an element updates every slot without rebuilding storage") {
+  REQUIRE_EQ(AliasedElement::alive, 0);
+  {
+    core::array<AliasedElement> values(3);
+    values[0].value = 4;
+    values[1].value = 5;
+    values[2].value = 6;
+    const auto *storage = values.data();
+    values.fill(values[2]);
+    CHECK_EQ(values.data(), storage);
+    CHECK_EQ(AliasedElement::alive, 3);
+    CHECK_EQ(values[0].value, 6);
+    CHECK_EQ(values[1].value, 6);
+    CHECK_EQ(values[2].value, 6);
+
+    values[0].value = 1;
+    values[1].value = 2;
+    values[2].value = 3;
+    values.fill(values[0]);
+    CHECK_EQ(values.data(), storage);
+    CHECK_EQ(AliasedElement::alive, 3);
+    CHECK_EQ(values[0].value, 1);
+    CHECK_EQ(values[1].value, 1);
+    CHECK_EQ(values[2].value, 1);
+  }
+  CHECK_EQ(AliasedElement::alive, 0);
 }

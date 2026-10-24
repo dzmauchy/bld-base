@@ -43,7 +43,12 @@ void MockRuntime::tick() {
 
 void MockRuntime::setNow(u64 milliseconds) { instance().now_ = milliseconds; }
 
-void MockRuntime::setRandom(f32 value) { instance().random_ = value; }
+void MockRuntime::setRandom(f32 value) {
+  instance().random_ = value;
+  instance().random64_ = static_cast<f64>(value);
+}
+
+void MockRuntime::setRandomF64(f64 value) { instance().random64_ = value; }
 
 void MockRuntime::emitGpio(u32  port,
                            u8   pin,
@@ -183,7 +188,7 @@ void MockRuntime::handleSendF64(u32 blockId,
 
 auto MockRuntime::handleRandomF32() const -> f32 { return random_; }
 
-auto MockRuntime::handleRandomF64() const -> f64 { return static_cast<f64>(random_); }
+auto MockRuntime::handleRandomF64() const -> f64 { return random64_; }
 
 auto MockRuntime::handleGetTime() const -> u64 { return now_; }
 

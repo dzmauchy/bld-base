@@ -15,6 +15,7 @@ public:
   static void tick();
   static void setNow(u64 milliseconds);
   static void setRandom(f32 value);
+  static void setRandomF64(f64 value);
   static void emitGpio(u32  port,
                        u8   pin,
                        bool value);
@@ -99,4 +100,5 @@ private:
   u32                                   nextGpioId_{1};
   u64                                   now_{0};
   f32                                   random_{0};
+  f64                                   random64_{0};
 };
