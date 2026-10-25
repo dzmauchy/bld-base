@@ -35,6 +35,10 @@ void configurationFactory(u32,
                           i32,
                           Bool,
                           core::array<u8>) noexcept {}
+void referenceFactory(u32,
+                      const f32 &,
+                      f32 &&,
+                      const core::array<u8> &) noexcept {}
 } // namespace
 
 TEST_CASE("Factory configuration uses parameter positions and preserves array elements") {
@@ -46,6 +50,19 @@ TEST_CASE("Factory configuration uses parameter positions and preserves array el
   CHECK_EQ(pins[1], 3);
   CHECK_EQ(pins[2], 7);
   CHECK(core::config_arg<2>(configurationFactory).empty());
+}
+
+TEST_CASE("Factory configuration decays reference parameters to values") {
+  static_assert(std::is_same_v<decltype(core::config_arg<0>(referenceFactory, 2.5)), f32>);
+  static_assert(std::is_same_v<decltype(core::config_arg<1>(referenceFactory, -8)), f32>);
+  static_assert(std::is_same_v<decltype(core::config_arg<2>(referenceFactory)), core::array<u8>>);
+  CHECK_EQ(core::config_arg<0>(referenceFactory, 2.5), 2.5f);
+  CHECK_EQ(core::config_arg<1>(referenceFactory, -8), -8.f);
+  const auto pins = core::config_arg<2>(referenceFactory, 9, 0);
+  REQUIRE_EQ(pins.size(), 2);
+  CHECK_EQ(pins[0], 9);
+  CHECK_EQ(pins[1], 0);
+  CHECK(core::config_arg<2>(referenceFactory).empty());
 }
 
 TEST_CASE_TEMPLATE("Uniform diagram calls wire fanout and copy temporary connection lists",

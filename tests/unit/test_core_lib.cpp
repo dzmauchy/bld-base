@@ -221,3 +221,22 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
 }
+
+TEST_CASE("Core function wraps another function and converts its argument and result") {
+  core::function<long(short)> inner = [sum = 0](short value) mutable {
+    sum += value;
+    return static_cast<long>(sum);
+  };
+  core::function<int(int)> outer = inner;
+  CHECK(static_cast<bool>(outer));
+  CHECK_EQ(outer(2), 2);
+  CHECK_EQ(outer(3), 5);
+  CHECK_EQ(inner(2), 2);
+  const auto copy = outer;
+  CHECK_EQ(copy(1), 6);
+  CHECK_EQ(outer(1), 6);
+  outer.reset();
+  CHECK_FALSE(outer);
+  CHECK_EQ(copy(1), 7);
+  CHECK_EQ(inner(1), 3);
+}
