@@ -101,3 +101,102 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
   }
   MockRuntime::close();
 }
+
+TEST_CASE_TEMPLATE("A barely negative pulse phase wraps to the low part of the cycle",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T   samples[3]{};
+  u32 calls = 0;
+  core::function<void(T)> receive = [&](const T value) {
+    if (calls < 3)
+      samples[calls] = value;
+    ++calls;
+  };
+  constexpr T phase = -T{1} / T{1024};
+  constexpr T amplitude = T{4};
+  auto        pulse = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32(0, T{0.5}, amplitude, T{1}, phase);
+    else
+      return push::f_64::sources::PulseGenF64(0, T{0.5}, amplitude, T{1}, phase);
+  }();
+  pulse({.downstream = std::array{&receive}});
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+  MockRuntime::tick();
+  MockRuntime::setNow(1);
+  MockRuntime::tick();
+  MockRuntime::setNow(501);
+  MockRuntime::tick();
+  REQUIRE_EQ(calls, 3);
+  CHECK_EQ(samples[0], T{0});
+  CHECK_EQ(samples[1], amplitude);
+  CHECK_EQ(samples[2], T{0});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 3);
+}
+
+TEST_CASE_TEMPLATE("A full-turn phase is reduced before the wave is sampled",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T   sineValue = T{7};
+  T   cosineValue = T{7};
+  u32 sineCalls = 0;
+  u32 cosineCalls = 0;
+  core::function<void(T)> receiveSine = [&](const T value) {
+    sineValue = value;
+    ++sineCalls;
+  };
+  core::function<void(T)> receiveCosine = [&](const T value) {
+    cosineValue = value;
+    ++cosineCalls;
+  };
+  constexpr T phase = T{2} * core::pi_v<T>;
+  auto        sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::SinGenF32(0, 10, T{1}, T{1}, phase);
+    else
+      return push::f_64::sources::SinGenF64(0, 10, T{1}, T{1}, phase);
+  }();
+  auto cosine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::CosGenF32(1, 10, T{1}, T{1}, phase);
+    else
+      return push::f_64::sources::CosGenF64(1, 10, T{1}, T{1}, phase);
+  }();
+  sine({.downstream = std::array{&receiveSine}});
+  cosine({.downstream = std::array{&receiveCosine}});
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(sineCalls, 0);
+  CHECK_EQ(cosineCalls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 2);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 10);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(1), 10);
+  MockRuntime::tick();
+  CHECK_EQ(sineCalls, 1);
+  CHECK_EQ(cosineCalls, 1);
+  CHECK_EQ(sineValue, T{0});
+  CHECK_EQ(cosineValue, T{1});
+  MockRuntime::setNow(250);
+  MockRuntime::tick();
+  CHECK_EQ(sineCalls, 2);
+  CHECK_EQ(cosineCalls, 2);
+  CHECK_EQ(sineValue, T{1});
+  const T cosineMagnitude = cosineValue < T{0} ? -cosineValue : cosineValue;
+  CHECK(cosineMagnitude < T{1e-5});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(sineCalls, 2);
+  CHECK_EQ(cosineCalls, 2);
+}
