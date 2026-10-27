@@ -1,4 +1,5 @@
 #include <array>
+#include <cmath>
 #include <doctest/doctest.h>
 
 #include <base/f32_blocks.hpp>
@@ -100,4 +101,146 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
     CHECK_EQ(pulseValue, time == 0 ? T{0} : T{1});
   }
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("A quarter duty pulse falls at 250 ms and restarts on the next period",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       value = T{9};
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&](const T sample) {
+    value = sample;
+    ++calls;
+  };
+  auto pulse = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32(0, T{0.25}, T{4}, T{1}, T{0});
+    else
+      return push::f_64::sources::PulseGenF64(0, T{0.25}, T{4}, T{1}, T{0});
+  }();
+  pulse({.downstream = std::array{&receive}});
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+
+  const u64 times[]{0, 249, 250, 500, 1000};
+  const T   expected[]{T{4}, T{4}, T{0}, T{0}, T{4}};
+  for (u32 index = 0; index < 5; ++index) {
+    MockRuntime::setNow(times[index]);
+    MockRuntime::tick();
+    CHECK_EQ(value, expected[index]);
+    CHECK_FALSE(std::signbit(value));
+  }
+  CHECK_EQ(calls, 5);
+
+  const auto callsAtClose = calls;
+  const auto valueAtClose = value;
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::setNow(249);
+  MockRuntime::tick();
+  CHECK_EQ(calls, callsAtClose);
+  CHECK_EQ(value, valueAtClose);
+}
+
+TEST_CASE_TEMPLATE("Negative sine amplitude flips the peaks and keeps a signed zero",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       value = T{9};
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&](const T sample) {
+    value = sample;
+    ++calls;
+  };
+  auto sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::SinGenF32(0, 10, T{1}, T{-2}, T{0});
+    else
+      return push::f_64::sources::SinGenF64(0, 10, T{1}, T{-2}, T{0});
+  }();
+  sine({.downstream = std::array{&receive}});
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 10);
+
+  const u64  times[]{0, 250, 750, 1000};
+  const T    expected[]{T{0}, T{-2}, T{2}, T{0}};
+  const bool negative[]{true, true, false, true};
+  for (u32 index = 0; index < 4; ++index) {
+    MockRuntime::setNow(times[index]);
+    MockRuntime::tick();
+    CHECK_EQ(value, expected[index]);
+    CHECK_EQ(std::signbit(value), negative[index]);
+  }
+  CHECK_EQ(calls, 4);
+
+  const auto callsAtClose = calls;
+  const auto valueAtClose = value;
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::setNow(250);
+  MockRuntime::tick();
+  CHECK_EQ(calls, callsAtClose);
+  CHECK_EQ(value, valueAtClose);
+  CHECK(std::signbit(value));
+}
+
+TEST_CASE_TEMPLATE("A zero factor zeroes the whole product until that factor is replaced",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       value = T{9};
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&](const T sample) {
+    value = sample;
+    ++calls;
+  };
+  constexpr auto Product = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::ProductF32;
+    else
+      return push::f_64::transformers::ProductF64;
+  }();
+  auto product = Product(0, 10);
+  auto output = product({.downstream = std::array{&receive}});
+  auto factors = output.channels(3);
+  REQUIRE_EQ(factors.size(), 3);
+  (*factors[0])(T{4});
+  (*factors[2])(T{5});
+
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 10);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 0);
+
+  (*factors[1])(T{0});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(value, T{0});
+  CHECK_FALSE(std::signbit(value));
+
+  (*factors[1])(T{2});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(value, T{40});
+
+  const auto callsAtClose = calls;
+  const auto valueAtClose = value;
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  (*factors[1])(T{3});
+  MockRuntime::tick();
+  CHECK_EQ(calls, callsAtClose);
+  CHECK_EQ(value, valueAtClose);
 }
