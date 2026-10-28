@@ -101,3 +101,157 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
   }
   MockRuntime::close();
 }
+
+TEST_CASE_TEMPLATE("A sine generator rearms one interval from the later start time",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       last = T{2};
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&last, &calls](const T value) {
+    last = value;
+    ++calls;
+  };
+  constexpr auto Sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::SinGenF32;
+    else
+      return push::f_64::sources::SinGenF64;
+  }();
+  auto sine = Sine(1, 25, T{1}, T{1}, T{0});
+  sine({.downstream = std::array{&receive}});
+
+  MockRuntime::setNow(0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
+  MockRuntime::setNow(250);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK(last == doctest::Approx(T{1}));
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+
+  MockRuntime::setNow(250);
+  MockRuntime::start();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{0});
+  MockRuntime::setNow(500);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 3);
+  CHECK(last == doctest::Approx(T{1}));
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 3);
+}
+
+TEST_CASE_TEMPLATE("A sum keeps latched terms and rearms one interval after close",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       last = 0;
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&last, &calls](const T value) {
+    last = value;
+    ++calls;
+  };
+  constexpr auto Sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32;
+    else
+      return push::f_64::transformers::SumF64;
+  }();
+  auto sum = Sum(1, 15);
+  auto output = sum({.downstream = std::array{&receive}});
+  auto channels = output.channels(2);
+  REQUIRE_EQ(channels.size(), 2);
+  (*channels[0])(T{3});
+  (*channels[1])(T{4});
+
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 15);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(last, T{7});
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 1);
+
+  MockRuntime::start();
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 15);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{7});
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+}
+
+TEST_CASE_TEMPLATE("Starting again does not revive GPIO listeners cleared by close",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  T                       last = T{2};
+  u32                     calls = 0;
+  core::function<void(T)> receive = [&last, &calls](const T value) {
+    last = value;
+    ++calls;
+  };
+  constexpr auto Gpio = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::GpioInF32;
+    else
+      return push::f_64::sources::GpioInF64;
+  }();
+  auto gpio = Gpio(2, 4, core::array<u8>(1, u8{6}));
+  gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{{std::array{&receive}}}});
+
+  CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::emitGpio(4, 6, true);
+  CHECK_EQ(calls, 1);
+  CHECK_EQ(last, T{1});
+
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 1);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::emitGpio(4, 6, false);
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{0});
+
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  MockRuntime::emitGpio(4, 6, true);
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{0});
+
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::emitGpio(4, 6, true);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(last, T{0});
+}
