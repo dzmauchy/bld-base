@@ -171,6 +171,33 @@ TEST_CASE("Scalar ports transport a custom struct through the same wiring API") 
   CHECK(received.valid);
 }
 
+TEST_CASE("Vectorized output copies an lvalue port and takes ownership of an rvalue") {
+  MockRuntime::reset();
+  auto copiedScope = push::f_32::sinks::ScopeF32(0)();
+  auto copiedPort = copiedScope.channels;
+  auto copied = core::output_channels<true, 1>(copiedPort);
+  CHECK(static_cast<bool>(copiedPort));
+  (*copied.at(0))(4.f);
+  CHECK_EQ(MockRuntime::lastF32(0, 0), 4.f);
+
+  auto movedScope = push::f_32::sinks::ScopeF32(1)();
+  auto movedPort = movedScope.channels;
+  auto moved = core::output_channels<true, 1>(core::detail::move(movedPort));
+  CHECK_FALSE(static_cast<bool>(movedPort));
+  (*moved.at(0))(6.f);
+  CHECK_EQ(MockRuntime::lastF32(1, 0), 6.f);
+
+  core::array<i32> numbers{{7, 9}};
+  auto             owned = core::output_channels<true, 2>(core::detail::move(numbers));
+  CHECK(numbers.empty());
+  CHECK_EQ(owned.at(0), 7);
+  CHECK_EQ(owned.at(1), 9);
+  owned.at(0) = 4;
+  CHECK_EQ(owned.at(0), 4);
+  CHECK(numbers.empty());
+  MockRuntime::close();
+}
+
 TEST_CASE("Vector output views retain consumer storage and support direct arrays") {
   MockRuntime::reset();
   auto channels = core::output_channels<true, 2>(push::f_32::sinks::ScopeF32(0)().channels);
