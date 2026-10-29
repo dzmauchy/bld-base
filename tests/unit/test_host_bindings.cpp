@@ -101,3 +101,73 @@ TEST_CASE_TEMPLATE("Wave and pulse generators wrap negative phases and repeated 
   }
   MockRuntime::close();
 }
+
+TEST_CASE_TEMPLATE("Sum delivers one folded sample per downstream pointer and skips nulls",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  u32                     calls = 0;
+  T                       received = T{0};
+  core::function<void(T)> sink = [&](const T value) {
+    received = value;
+    ++calls;
+  };
+  auto sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32(0, 10);
+    else
+      return push::f_64::transformers::SumF64(0, 10);
+  }();
+  auto output =
+      sum({.downstream = std::array<core::function<void(T)> *, 3>{&sink, nullptr, &sink}});
+  auto terms = output.channels(2);
+  (*terms[0])(T{3});
+  (*terms[1])(T{4});
+
+  CHECK_EQ(calls, 0);
+  MockRuntime::start();
+  CHECK_EQ(calls, 0);
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 10);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 2);
+  CHECK_EQ(received, T{7});
+
+  (*terms[1])(T{10});
+  MockRuntime::tick();
+  CHECK_EQ(calls, 4);
+  CHECK_EQ(received, T{13});
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(calls, 4);
+}
+
+TEST_CASE_TEMPLATE("A generator with no downstream still arms and clears one interval",
+                   T,
+                   f32,
+                   f64) {
+  MockRuntime::reset();
+  auto sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::SinGenF32(0, 25, T{1}, T{1}, T{0});
+    else
+      return push::f_64::sources::SinGenF64(0, 25, T{1}, T{1}, T{0});
+  }();
+  sine({.downstream = {}});
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  MockRuntime::start();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  CHECK_EQ(MockRuntime::intervalPeriodAt(0), 25);
+  MockRuntime::setNow(250);
+  MockRuntime::tick();
+  MockRuntime::setNow(500);
+  MockRuntime::tick();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+  MockRuntime::close();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  MockRuntime::tick();
+  CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+}

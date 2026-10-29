@@ -221,3 +221,42 @@ TEST_CASE("Core array cleans up partial construction and failed copies") {
   }
   CHECK_EQ(ThrowingCopy::alive, 0);
 }
+
+TEST_CASE("Core function stays engaged when its target throws") {
+  int seen = 0;
+  core::function<int(int)> callable = [&seen](int value) {
+    seen += value;
+    if (value < 0)
+      throw 7;
+    return seen;
+  };
+  CHECK_THROWS_AS(callable(-3), int);
+  CHECK_EQ(seen, -3);
+  CHECK(static_cast<bool>(callable));
+  CHECK_EQ(callable(4), 1);
+
+  core::function<int()> original = [n = 0]() mutable {
+    ++n;
+    if (n < 2)
+      throw 4;
+    return n;
+  };
+  CHECK_THROWS_AS(original(), int);
+  CHECK(static_cast<bool>(original));
+  auto copy = original;
+  CHECK_EQ(copy(), 2);
+  CHECK_EQ(original(), 2);
+  CHECK_EQ(copy(), 3);
+
+  int                       voidCalls = 0;
+  core::function<void(int)> sink = [&voidCalls](int value) {
+    ++voidCalls;
+    if (value == 0)
+      throw 9;
+  };
+  CHECK_THROWS_AS(sink(0), int);
+  CHECK_EQ(voidCalls, 1);
+  CHECK(static_cast<bool>(sink));
+  sink(2);
+  CHECK_EQ(voidCalls, 2);
+}
