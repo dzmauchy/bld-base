@@ -128,6 +128,69 @@ template <typename O> core::function<O()> DualScope(u32 blockId) {
   };
 }
 
+// The first sink records the in-flight sample. The second sink throws until accepted.
+// The third sink must stay silent for that attempt.
+template <typename T> struct ThrowingFanout {
+  bool throwing = true;
+  T    firstValue{};
+  T    secondValue{};
+  T    thirdValue{T{-1}};
+  u32  firstCalls = 0;
+  u32  secondCalls = 0;
+  u32  thirdCalls = 0;
+
+  core::function<void(T)> first{[this](const T value) {
+    firstValue = value;
+    ++firstCalls;
+  }};
+  core::function<void(T)> second{[this](const T value) {
+    secondValue = value;
+    if (throwing)
+      throw 1;
+    ++secondCalls;
+  }};
+  core::function<void(T)> third{[this](const T value) {
+    thirdValue = value;
+    ++thirdCalls;
+  }};
+
+  ThrowingFanout() = default;
+  ThrowingFanout(const ThrowingFanout &) = delete;
+  ThrowingFanout &operator=(const ThrowingFanout &) = delete;
+
+  std::array<core::function<void(T)> *, 3> sinks() { return {&first, &second, &third}; }
+
+  void expectAborted(const char *label,
+                     T            sample) const {
+    INFO(label);
+    CHECK_EQ(firstCalls, 1);
+    CHECK_EQ(firstValue, sample);
+    CHECK_EQ(secondCalls, 0);
+    CHECK_EQ(secondValue, sample);
+    CHECK_EQ(thirdCalls, 0);
+    CHECK_EQ(thirdValue, T{-1});
+  }
+
+  void expectDelivered(const char *label,
+                       T            sample) const {
+    INFO(label);
+    CHECK_EQ(firstCalls, 1);
+    CHECK_EQ(secondCalls, 1);
+    CHECK_EQ(thirdCalls, 1);
+    CHECK_EQ(firstValue, sample);
+    CHECK_EQ(secondValue, sample);
+    CHECK_EQ(thirdValue, sample);
+  }
+
+  void acceptNext() {
+    throwing = false;
+    firstCalls = 0;
+    secondCalls = 0;
+    thirdCalls = 0;
+    thirdValue = T{-1};
+  }
+};
+
 } // namespace
 
 TEST_CASE("Block dispatches structs with multiple ports") {
@@ -420,4 +483,148 @@ TEST_CASE_TEMPLATE(
   CHECK_EQ(received, T{6});
   CHECK_EQ(calls, 3);
   MockRuntime::close();
+}
+
+TEST_CASE_TEMPLATE("A throwing sink stops later fan-out and the next sample reaches every sink",
+                   T,
+                   f32,
+                   f64) {
+  constexpr auto Constant = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::ConstF32;
+    else
+      return push::f_64::sources::ConstF64;
+  }();
+  constexpr auto Sine = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SinF32;
+    else
+      return push::f_64::transformers::SinF64;
+  }();
+  constexpr auto Sum = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::transformers::SumF32;
+    else
+      return push::f_64::transformers::SumF64;
+  }();
+  constexpr auto Pulse = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::PulseGenF32;
+    else
+      return push::f_64::sources::PulseGenF64;
+  }();
+  constexpr auto Gpio = [] {
+    if constexpr (std::is_same_v<T, f32>)
+      return push::f_32::sources::GpioInF32;
+    else
+      return push::f_64::sources::GpioInF64;
+  }();
+
+  {
+    MockRuntime::reset();
+    ThrowingFanout<T> fan;
+    auto              constant = Constant(1, T{5});
+    constant({.downstream = fan.sinks()});
+    CHECK_THROWS_AS(MockRuntime::start(), int);
+    fan.expectAborted("constant", T{5});
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+    fan.acceptNext();
+    MockRuntime::start();
+    fan.expectDelivered("constant retry", T{5});
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+  }
+
+  {
+    MockRuntime::reset();
+    ThrowingFanout<T> fan;
+    auto              transformer = Sine(2);
+    auto              output = transformer({.downstream = fan.sinks()});
+    CHECK_THROWS_AS((*output.consumer)(T{0}), int);
+    fan.expectAborted("unary", T{0});
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+    fan.acceptNext();
+    (*output.consumer)(T{0});
+    fan.expectDelivered("unary retry", T{0});
+  }
+
+  {
+    MockRuntime::reset();
+    ThrowingFanout<T> fan;
+    auto              sum = Sum(3, 15);
+    auto              output = sum({.downstream = fan.sinks()});
+    auto              channels = output.channels(2);
+    (*channels[0])(T{3});
+    (*channels[1])(T{4});
+    MockRuntime::start();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+    CHECK_EQ(MockRuntime::intervalPeriodAt(0), 15);
+    CHECK_THROWS_AS(MockRuntime::tick(), int);
+    fan.expectAborted("sum", T{7});
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+    CHECK_EQ(MockRuntime::intervalPeriodAt(0), 15);
+    (*channels[1])(T{6});
+    fan.acceptNext();
+    MockRuntime::tick();
+    fan.expectDelivered("sum retry", T{9});
+    MockRuntime::close();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+    MockRuntime::tick();
+    fan.expectDelivered("sum after close", T{9});
+  }
+
+  {
+    MockRuntime::reset();
+    ThrowingFanout<T> fan;
+    auto              pulse = Pulse(4, T{1}, T{6}, T{0}, T{0});
+    pulse({.downstream = fan.sinks()});
+    MockRuntime::setNow(0);
+    MockRuntime::start();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+    CHECK_EQ(MockRuntime::intervalPeriodAt(0), 1);
+    CHECK_THROWS_AS(MockRuntime::tick(), int);
+    fan.expectAborted("pulse", T{6});
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 1);
+    fan.acceptNext();
+    MockRuntime::tick();
+    fan.expectDelivered("pulse retry", T{6});
+    MockRuntime::close();
+    CHECK_EQ(MockRuntime::activeIntervalCount(), 0);
+    MockRuntime::tick();
+    fan.expectDelivered("pulse after close", T{6});
+  }
+
+  {
+    MockRuntime::reset();
+    ThrowingFanout<T>       fan;
+    T                       otherValue = T{-1};
+    u32                     otherCalls = 0;
+    core::function<void(T)> other = [&](const T value) {
+      otherValue = value;
+      ++otherCalls;
+    };
+    auto gpio = Gpio(5, 6, core::array<u8>{{1, 4}});
+    gpio({.pins = core::array<VectorizedInput<core::function<void(T)>>>{
+              {fan.sinks(), std::array{&other}}}});
+    CHECK_EQ(MockRuntime::activeGpioCount(), 2);
+    CHECK_THROWS_AS(MockRuntime::emitGpio(6, 1, true), int);
+    fan.expectAborted("gpio", T{1});
+    CHECK_EQ(otherCalls, 0);
+    CHECK_EQ(otherValue, T{-1});
+    CHECK_EQ(MockRuntime::activeGpioCount(), 2);
+    MockRuntime::emitGpio(6, 4, true);
+    CHECK_EQ(otherCalls, 1);
+    CHECK_EQ(otherValue, T{1});
+    fan.expectAborted("gpio other pin", T{1});
+    fan.acceptNext();
+    MockRuntime::emitGpio(6, 1, false);
+    fan.expectDelivered("gpio retry", T{0});
+    CHECK_EQ(otherCalls, 1);
+    MockRuntime::close();
+    CHECK_EQ(MockRuntime::activeGpioCount(), 0);
+    MockRuntime::emitGpio(6, 1, true);
+    MockRuntime::emitGpio(6, 4, false);
+    fan.expectDelivered("gpio after close", T{0});
+    CHECK_EQ(otherCalls, 1);
+    CHECK_EQ(otherValue, T{1});
+  }
 }
